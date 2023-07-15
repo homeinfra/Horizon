@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script deploys on XCP-ng, based on VM name
+
+main() {
+    parse;
+
+	# First step: Upload file
+	if [ ! -z $UPLOAD_FILE ]; then
+		xe_upload_file $UPLOAD_FILE;
+	fi
+
+    xe_init;
+
+	# If we are asking for eject. Do it and stop here
+	if [ ! -z $EJECT_NAME ]; then
+		VM_NAME=$EJECT_NAME
+		xe_eject;
+		end;
+	fi
+
+	# If no VM is specified, nothing more to do
+	if [ -z $VM_NAME ]; then
+		end;
+	fi
+
+	validate_params;
+	
+	xe_find_vm;
+
+	# If VM doesn't exist, create it
+	if [ -z $VM_UUID ]; then
+		xe_install_vm;
+	fi
+	
+	xe_adjust_disk_size;
+	xe_adjust_cpu_count;
+	xe_adjust_ram_size;
+	xe_attach_iso;
+	xe_attach_network;
+	xe_start;
+}
+
+validate_params() {
+	local number='0|[1-9][0-9]*'
+	local isSize="^(${number})(MiB|GiB|TiB)$"
+	local isNumber="^${number}$"
+
+	# Check if CPU is a number
+	if [ ! -z "$VM_CPU" ] && ! [[ "$VM_CPU" =~ $isNumber ]]; then
+		logFatal "'${VM_CPU}' is not a valid number of CPU"
+	fi
+
+	# Check if Disk is a valid size
+	if [ ! -z "$VM_DISK" ]; then
+		if ! [[ "$VM_DISK" =~ $isSize ]]; then
+			logFatal "'${VM_DISK}' is not a valid disk size"
+		else
+			local number=${BASH_REMATCH[1]}
+        	local unit=${BASH_REMATCH[2]}
+			if [ "$unit" == "MiB" ]; then
+				VM_DISK=$number
+			elif [ "$unit" == "GiB" ]; then
+				VM_DISK=$(($number * 1024))
+			elif [ "$unit" == "TiB" ]; then
+				VM_DISK=$(($number * 1024 * 1024))
+			else
+				logFatal "Unrecognized units '$unit'"
+			fi
+		fi
+		logTrace "Disk will be '$VM_DISK' mebibytes"
+	fi
+
+	# Check if Ram is a valid size
+	if [ ! -z "$VM_RAM" ]; then
+		if ! [[ "$VM_RAM" =~ $isSize ]]; then
+			logFatal "'${VM_RAM}' is not a valid ram size"
+		else
+			local number=${BASH_REMATCH[1]}
+        	local unit=${BASH_REMATCH[2]}
+			if [ "$unit" == "MiB" ]; then
+				VM_RAM=$number
+			elif [ "$unit" == "GiB" ]; then
+				VM_RAM=$(($number * 1024))
+			elif [ "$unit" == "TiB" ]; then
+				VM_RAM=$(($number * 1024 * 1024))
+			else
+				logFatal "Unrecognized units '$unit'"
+			fi
+		fi
+		logTrace "Ram will be '$VM_RAM' mebibytes"
+	fi
+
+	# If no template given, make sure CPU, Ram and Disk are given
+	if [ -z  "$VM_TEMPLATE" ]; then
+		if [ -z "$VM_CPU" ] || [ -z "$VM_RAM" ] || [ -z "$VM_DISK" ]; then
+			logFatal "CPU, Ram or Disk are undefined. Please consider using a template."
+		fi
+	else
+		xe_find_template;
+	fi
+
+	# If ISO is given, make sure XCP-ng has it
+	if [ ! -z "$VM_ISO" ]; then
+		xe_find_iso;
+	fi
+
+	# If a network is given, make sure XCP-ng has it
+	if [ ! -z "$VM_NET" ]; then
+		xe_find_net;
+	fi
+	
+	# Make sure the Storage Repository actually exists
+	xe_find_sr;
+}
+
+parse() {
+	if [ $NUM_ARGS -eq 0 ]; then
+		: # It's OK
+	else
+		local arg_count=0
+		local param_count=0
+		for i in "${ARGS[@]}"; do
+			arg_count=$(($arg_count + 1))
+			case $i in
+				-h|--help)
+					print_help;
+					;;
+				-v|--version)
+					echo $($SEMVER_EXEC)
+					;;
+				-t=?*)
+					VM_TEMPLATE="${i##*=}"
+					logTrace "Using Template ${VM_TEMPLATE}"
+					;;
+				-r=?*)
+					VM_RAM="${i##*=}"
+					logTrace "Using RAM size ${VM_RAM}"
+					;;
+				-d=?*)
+					VM_DISK="${i##*=}"
+					logTrace "Using Disk size ${VM_DISK}"
+					;;
+				-c=?*)
+					VM_CPU="${i##*=}"
+					logTrace "Using ${VM_CPU} CPUs"
+					;;
+				--iso=?*)
+					VM_ISO="${i##*=}"
+					logTrace "Using ISO ${VM_ISO}"
+					;;
+				-*|--*)
+					logFatal "Unknown option: \"${i}\" in: ${ARGS[*]}"
+					;;
+				*)
+					param_count=$(($param_count + 1))
+					if [[ $param_count -eq 1 ]]; then # Should be COMMAND
+						case $i in
+							vm)
+								VM_NAME="${ARGS[$(($i + 1))]}"
+								logTrace "Configuring VM ${VM_NAME}"
+								;;
+							upload-iso)
+								UPLOAD_FILE="${ARGS[$(($i + 1))]}"
+								logTrace "Uploading File: ${UPLOAD_FILE}"
+								;;
+							eject-iso)
+								EJECT_NAME="${ARGS[$(($i + 1))]}"
+								logTrace "Eject iso on: ${EJECT_NAME}"
+								;;
+							*)
+								logFatal "Unknown command \"$i\" (Argument $arg_count of ${NUM_ARGS}): ${ARGS[*]}"
+								;;
+						esac
+					elif [[ $param_count -gt 2 ]]; then
+						print_help;
+						logFatal "Unexpected parameter \"$i\" (Argument $arg_count of ${NUM_ARGS}): ${ARGS[*]}"
+					fi
+					;;
+			esac		
+		done
+	fi
+}
+
+print_help() {
+	echo "Deploys or updates a virtual machine named NAME on XCP-ng"
+	echo ""
+    echo "Usage: $ME [-h|--help|-v|--version]"
+	echo "       $ME vm NAME -t=<TEMPLATE> [-r=<RAM>] [-d=<DISK>] [-c=<CPU>] [OPTIONS]"
+	echo "       $ME upload-iso FILE"
+	echo "       $ME eject-iso NAME"
+	echo ""
+	echo "Command:"
+	echo "  vm              Update or Create the NAME vm."
+	echo "  upload-iso      Add the <file> ISO to the store."
+	echo "  eject-iso       Typically called after OS install on NAME. Ejects the ISO from the virtual optical drive."
+	echo ""
+	echo "Parameters:"
+	echo "  NAME            Name for the virtual machine"
+	echo "  FILE            path to the local file to be uploaded"
+	echo ""
+	echo "Options:"
+    echo "  -h,--help       Print this usage message"
+	echo "  -v,--version    Print the version of this tool"
+	echo "  -t              Name of the template stored on XCP-ng to use"
+	echo "  -r              Amount of RAM to allocate to the VM, expressed as 1MiB or 2GiB"
+	echo "  -d              Size of the disk allocated to the VM, expressed as 3GiB"
+	echo "  -c              Integer, number of CPUs to allocate. Dual core CPUs are attempted when >= 4. Quad core CPUs are attempted when > 8."
+	echo "  --iso=<name>    ISO's name as currently stored on XCP-ng"
+}
+
+end() {
+    log "== $ME Exited gracefully =="
+
+    # If we reach here, execution completed succesfully
+    exit 0
+}
+
+###########################
+###### Startup logic ######
+###########################
+
+# Keep a copy of entry arguments
+NUM_ARGS="$#"
+ARGS=("$@")
+
+# Path configuration
+ROOT="$(git rev-parse --show-toplevel)"
+LOGGER_EXEC="$ROOT/tools/logger-shell/logger.sh"
+SEMVER_EXEC="$ROOT/tools/semver/semver.sh"
+XE_EXEC="$ROOT/libs/xapi-shell/xe.sh"
+
+# Import logger
+. "$LOGGER_EXEC"
+log "== $ME Started =="
+
+# Load configuration
+CONFIGS=(.config/default.config)
+CONFIGS+=(${LOCAL_CONFIG//:/ })
+for config in ${CONFIGS[@]}; do
+	log "Loading config: $config"
+	source "${ROOT}/${config}"
+done
+
+# Import xe library
+. "$XE_EXEC"
+
+# Call main function
+main;
+
+# Exit gracefully
+end;

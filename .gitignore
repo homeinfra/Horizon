@@ -1,0 +1,9 @@
+# Configuration
+.config/*
+!.config/default.config
+
+# Build directory
+build/*
+
+# Log files
+.log/

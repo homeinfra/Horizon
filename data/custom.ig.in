@@ -1,0 +1,58 @@
+variant: fcos
+version: 1.5.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - <ssh_key>
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: <hostname>
+systemd:
+  units:
+    # This is required to support ansible. It was adapted using the following pieces of information:
+    # 1. https://docs.fedoraproject.org/en-US/fedora-coreos/os-extensions/
+    # 2. https://github.com/coreos/fedora-coreos-tracker/issues/592
+    # 3. https://discussion.fedoraproject.org/t/layering-packages-via-rpm-ostree-as-part-of-provisioning/29862/11
+    # 4. https://github.com/pvamos/fcos-k8s/blob/main/ignition/node1.fcc
+    - name: python-install.service
+      enabled: true
+      contents: |
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target
+        # Run before rpm-ostree attempts to perform updates (avoid conflicts)
+        Before=zincati.service sshd.service
+        ConditionPathExists=!/var/lib/python-install.stamp
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/usr/bin/rpm-ostree install --apply-live --allow-inactive python3 libselinux-python3
+        ExecStart=/bin/touch /var/lib/python-install.stamp
+        [Install]
+        WantedBy=multi-user.target
+    # This should take care of the depenncies for the csi-driver-smb. Inspired from:
+    # 1. https://github.com/kubernetes-csi/csi-driver-smb/blob/master/docs/driver-parameters.md#kerberos-ticket-support-for-linux
+    # 2. https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system-level_authentication_guide/configuring_a_kerberos_5_client
+    - name: smb-storage.service
+      enabled: true
+      contents: |
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target python-install.service
+        # Run before rpm-ostree attempts to perform updates (avoid conflicts)
+        Before=zincati.service
+        ConditionPathExists=!/var/lib/smb-storage.stamp
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/bin/mkdir -p /var/lib/kubelet/kerberos/
+        ExecStart=/bin/mkdir -p /etc/krb5.conf.d/
+        ExecStart=/bin/echo -e '[libdefaults]\ndefault_ccache_name = FILE:/var/lib/kubelet/kerberos/krb5cc_%{uid}\n' > /etc/krb5.conf.d/ccache.conf
+        ExecStart=/usr/bin/rpm-ostree install --apply-live --allow-inactive krb5-libs krb5-workstation cifs-utils
+        ExecStart=/bin/touch /var/lib/smb-storage.stamp
+        [Install]
+        WantedBy=multi-user.target
