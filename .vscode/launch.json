@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
-                "LOCAL_CONFIG": ".config/demers.config:.config/local.config"
+                "LOCAL_CONFIG": ".config/demers.env:.config/local.env"
               }
         }
     ]

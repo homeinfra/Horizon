@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to setup the local environement for developers of this repo.
+# It is not required if you only wish to run the software, in which case
+# it is suggested to run ./src/client/setup-local instead.
+#
+# NOTE: Only supports Ubuntu WSL (Windows Subsystem for Linux) currently
+
+main() {
+  local res=0
+  parse
+
+  fix_snap
+
+  # Tools installed with snap
+  logTrace "Installing snap tools: ${SNAP_TOOLS[*]}"
+  sudo snap install "${SNAP_TOOLS[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logFatal "Failure (${res}) to install snap tools: ${SNAP_TOOLS[*]}"
+  fi
+
+  # Tools installed with pip
+  logTrace "Installing pip tools: ${PY_TOOLS[*]}"
+  sudo pip install "${PY_TOOLS[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logFata "Failure (${res}) to install pip tools: ${PY_TOOLS[*]}"
+  fi
+
+  # setup git hooks
+  logTrace "Configuring git hooks"
+  git config core.hooksPath .githooks
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logFatal "Failure (${res}) to configure git hooks"
+  fi
+}
+
+uninstall() {
+  local res=0
+
+  # Remove pip tools
+  logTrace "Uninstalling pip tools: ${PY_TOOLS[*]}"
+  sudo pip uninstall -y "${PY_TOOLS[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logWarn "Failure (${res}) to do pip uninstall"
+  fi
+
+  # Remove snap tools
+  logTrace "Uninstalling snap tools: ${SNAP_TOOLS[*]}"
+  sudo snap remove --purge "${SNAP_TOOLS[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logWarn "Failure (${res}) to do snap remove"
+  fi
+}
+
+fix_snap() {
+  local res=0
+
+  # Check that systemd is enabled
+  grep 'systemd=true' < /etc/wsl.conf > /dev/null
+  res=$?
+  if [[ ${res} -eq 0 ]]; then
+    logTrace "systemd is enabled"
+  else
+    echo -e "\n\
+##################################################\n\
+############ SYSTEMD IS REQUIRED #################\n\
+##################################################\n\
+\n\
+It seems that systemd is not enabled in your WSL installation. This is required for snap operation.\n\
+Information on how to enable systemd in WSL is available here:\n\
+https://learn.microsoft.com/en-us/windows/wsl/wsl-config#systemd-support"
+
+    return 1
+  fi
+
+  # Check that the fix for running Win32 apps on WSL is implemented
+  grep ':WSLInterop:M::MZ::/init:PF' < /usr/lib/binfmt.d/WSLInterop.conf > /dev/null
+  res=$?
+  if [[ ${res} -eq 0 ]]; then
+    logTrace "The fix fox systemd and win32 executables was detected"
+  else
+    echo -e "\n\
+##################################################\n\
+############# SYSTEMD BROKE WIN32 ################\n\
+##################################################\n\
+\n\
+It seems that you don't have the fix allowing WSL to execute win32 executables while\n\
+systemd is enabled in your WSL installation. This is required for snap operation.\n\
+Information on how to apply this fix in WSL is available here:\n\
+https://github.com/microsoft/WSL/issues/8843#issuecomment-1459120198"
+
+    return 1
+  fi
+}
+
+parse() {
+  if [[ ${NUM_ARGS} -eq 0 ]]; then
+    : # Default behavior, perform installation
+  else
+    for i in "${ARGS[@]}"; do
+      case ${i} in
+        -h | --help)
+          print_help
+          ;;
+        -v | --version)
+          ${SEMVER_EXEC}
+          ;;
+        -u | --uninstall)
+          uninstall
+          ;;
+        *)
+          print_help
+          logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
+          ;;
+      esac
+    done
+    end
+  fi
+}
+
+print_help() {
+  echo "usage: ${ME} [-h|--help|-v|--version]"
+  echo "  -h,--help       Print this usage message"
+  echo "  -v,--version    Print the version of this tool"
+  echo "  -u,--uninstall  Remove anything installed by this script"
+}
+
+end() {
+  log "== ${ME} Exited gracefully =="
+
+  # If we reach here, execution completed succesfully
+  exit 0
+}
+
+###########################
+###### Startup logic ######
+###########################
+
+# Keep a copy of entry arguments
+NUM_ARGS="$#"
+ARGS=("$@")
+ME="$(basename "$0")"
+
+# Path Configuration
+ROOT="$(git rev-parse --show-toplevel)"
+LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
+SEMVER_EXEC="${ROOT}/tools/semver/semver"
+SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
+SNAP_TOOLS=("shfmt" "shellcheck")
+PY_TOOLS=("pylama[all]")
+
+# Import logger
+# shellcheck source=tools/logger-shell/logger.sh
+. "${LOGGER_EXEC}"
+log "== ${ME} Started =="
+
+# Load configuration
+source "${ROOT}/.config/default.env"
+# shellcheck disable=2154
+IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+for config in "${CONFIGS[@]}"; do
+  log "Loading config: ${config}"
+  # shellcheck source=.config/default.env
+  source <(sops -d "${ROOT}/${config}" || true)
+done
+
+# Import shell-utils
+# shellcheck source=tools/shell-utils/shell-utils.sh
+. "${SHUTILS_EXEC}"
+
+# Call main function
+main
+
+# Exit gracefully
+end

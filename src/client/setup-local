@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to setup the local environement used to remotely deploy
+# the infrastructure described by this git repository.
+# In other words, this should only be run once on a client computer.
+#
+# Currently only supports Ubuntu WSL (Windows Subsystem for Linux)
+
+main() {
+  parse
+
+  # Make sure that XE is available locally
+  xe_init
+
+  # Update package repositories
+  sudo apt-get update
+
+  # shellcheck disable=2086
+  # Dependencies for bootstraping Fedora Core OS
+  if ! sudo apt-get install -y ${APT_GET_APPS}; then
+    logFatal "Failed to apt-get"
+  else
+    logTrace "apt-get succeeded"
+  fi
+
+  # Further dependencies for FCOS
+  install_wsl_port_forwarding
+  install_coreos_installer
+  install_ansible
+
+  # Pip dependencies
+  logTrace "Installing pip tools: ${PY_TOOLS[*]}"
+  sudo pip install "${PY_TOOLS[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logFata "Failure (${res}) to install pip tools: ${PY_TOOLS[*]}"
+  fi
+
+  # Encryption dependencies
+  install_sops
+  install_age
+  config_key
+}
+
+config_key() {
+  # Configure a new encryption key if you don't already have one
+  local key_loc="${HOME}/.sops/key.txt"
+  if [[ ! -f "${key_loc}" ]]; then
+    echo "###########################################################"
+    echo "###### No encryption key found. Generating a new one ######"
+    echo "###########################################################"
+
+    if ! age-keygen -o "${key_loc}"; then
+      logFatal "Failed to generate a new encryption key"
+    else
+      logTrace "Key generation succeeded"
+    fi
+  else
+    logTrace "Key already exists"
+  fi
+
+  add_env "SOPS_AGE_KEY_FILE" "\"${key_loc}\""
+}
+
+install_age() {
+  # Check if already installed
+  if ! age --version; then
+    logTrace "Installing age..."
+    mkdir -p "${ROOT}/build"
+    pushd "${ROOT}/build" || logFatal "no build dir"
+
+    local dl=0
+    local dir=0
+    # shellcheck disable=2154
+    dl=$(basename "${AGE_URL}")
+    dir=$(basename "${AGE_URL}" .tar.gz)
+    if ! curl -LO "${AGE_URL}" --output "${dl}"; then
+      logFatal "Failed to download SOPS"
+    else
+      logTrace "SOPS download succeeded"
+    fi
+
+    mkdir -p "${dir}"
+    if ! tar -xvf "${dl}" -C "${dir}"; then
+      logFatal "Failed to extract age"
+    fi
+
+    pushd "${dir}/age" || logFatal "no age dir"
+    cp "${AGE_FILES}" ~/bin/
+    chmod +x "${AGE_FILES}"
+    popd || logFatal "Failed to pop ${LINENO}"
+
+    rm -r "${dir}"
+    rm "${dl}"
+    popd || logFatal "Failed to pop ${LINENO}"
+  else
+    logInfo "age already installed"
+  fi
+}
+
+install_sops() {
+  # Check if already installed
+  if ! sops -v; then
+    mkdir -p "${ROOT}/build"
+    pushd "${ROOT}/build" || logFatal "no build dir"
+
+    logTrace "Installing SOPS..."
+    local installer=0
+    # shellcheck disable=2154
+    installer=$(basename "${SOPS_URL}")
+    if ! curl -LO "${SOPS_URL}" --output "${installer}"; then
+      logFatal "Failed to download SOPS"
+    else
+      logTrace "SOPS download succeeded"
+    fi
+
+    if ! sudo apt-get install -y "./${installer}"; then
+      logFatal "Failed to install SOPS"
+    else
+      logTrace "SOPS install succeeded"
+    fi
+
+    rm -r "${installer}"
+
+    mkdir -p ~/.sops
+
+    popd || logFatal "Failed to pop ${LINENO}"
+  else
+    logInfo "SOPS already installed"
+  fi
+}
+
+install_ansible() {
+  local install=ansible
+  local exec=ansible
+  local res=0
+  local is_installed=1
+
+  # shellcheck disable=2230
+  # Check if available
+  if ! res=$(which "${exec}"); then
+    is_installed=0
+  elif [[ -z "${res}" ]]; then
+    is_installed=0
+  else
+    res=${res%$'\r'}
+    logTrace "Found ${exec} here: ${res}"
+  fi
+
+  if [[ ${is_installed} -eq 0 ]]; then
+    logInfo "Installing ${exec}"
+    sudo pip install "${install}"
+  else
+    logTrace "${exec} is already installed"
+  fi
+
+  # Try it, to see if it's installed
+  if ! ${exec} --version; then
+        logFatal "Failed to launch ${exec}"
+  else
+    logTrace "${exec} started"
+  fi
+
+  pkill -9 -f "${exec}"
+  logInfo "${exec} tested successfully"
+}
+
+# We are hidden behind WSL bridging. We require Windows to forward open ports back to WSL
+# This tool achieves this by monitoring all open ports on WSL and adding forwarding info on windows side
+# This requires windows elevated administrator privilege. Make sure you run a WSL terminal as admin.
+install_wsl_port_forwarding() {
+  local install=wsl_port_forwarding
+  local exec=port_forwarding
+  local res=0
+  local is_installed=1
+
+  # shellcheck disable=2230
+  # Check if available
+  if ! res=$(which "${exec}"); then
+    is_installed=0
+  elif [[ -z "${res}" ]]; then
+    is_installed=0
+  else
+    res=${res%$'\r'}
+    logTrace "Found ${exec} here: ${res}"
+  fi
+
+  if [[ ${is_installed} -eq 0 ]]; then
+    logInfo "Installing ${exec}"
+    sudo pip install "${install}"
+  else
+    logTrace "${exec} is already installed"
+  fi
+
+  # Try it, to see if it's installed
+  if ! ${exec} -h > /dev/null; then
+    logFatal "Failed to launch ${exec}"
+  else
+    logTrace "${exec} started"
+  fi
+
+  pkill -9 -f "${exec}"
+  logInfo "${exec} tested successfully"
+}
+
+install_coreos_installer() {
+  pushd ~ > /dev/null || logFatal "no home dir"
+  if ! ${COREOS_EXEC} -V; then
+    logTrace "Installing coreos-installer from source..."
+    if ! cargo install coreos-installer; then
+      logFatal "Failed to cargo install"
+    else
+      logTrace "cargo install succeeded"
+    fi
+  else
+    logInfo "coreos-installer already installed"
+  fi
+  popd > /dev/null || logFatal "Failed to pop ${LINENO}"
+}
+
+uninstall() {
+  cargo uninstall coreos-installer
+  sudo pip uninstall -y wsl_port_forwarding ansible "${PY_TOOLS[@]}"
+  # shellcheck disable=2086
+  sudo apt-get purge -y ${APT_GET_APPS}
+  sudo apt-get autoremove -y
+
+  pushd ~/bin || logFatal "no home bin dir"
+  rm -f "${AGE_FILES}"
+  popd || logFatal "Failed to pop ${LINENO}"
+}
+
+parse() {
+  if [[ ${NUM_ARGS} -eq 0 ]]; then
+    : # It's OK
+  else
+    # shellcheck disable=2068
+    for i in ${ARGS[@]}; do
+      case ${i} in
+        -h | --help)
+          print_help
+          ;;
+        -v | --version)
+          ${SEMVER_EXEC}
+          ;;
+        -u | --uninstall)
+          uninstall
+          ;;
+        *)
+          print_help
+          logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
+          ;;
+      esac
+    done
+    end
+  fi
+}
+
+print_help() {
+  echo "usage: ${ME} [-h|--help|-v|--version]"
+  echo "  -h,--help       Print this usage message"
+  echo "  -v,--version    Print the version of this tool"
+  echo "  -u,--uninstall  Remove anything installed by this script"
+}
+
+end() {
+  log "== ${ME} Exited gracefully =="
+
+  # If we reach here, execution completed succesfully
+  exit 0
+}
+
+###########################
+###### Startup logic ######
+###########################
+
+# Keep a copy of entry arguments
+NUM_ARGS="$#"
+ARGS=("$@")
+ME="$(basename "$0")"
+
+# Path Configuration
+ROOT="$(git rev-parse --show-toplevel)"
+COREOS_EXEC=$(realpath ~/.cargo/bin/coreos-installer)
+LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
+SEMVER_EXEC="${ROOT}/tools/semver/semver"
+SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
+XE_EXEC="${ROOT}/libs/xapi-shell/xe.sh"
+AGE_FILES="age age-keygen"
+APT_GET_APPS="smbclient python3-pip cargo pkg-config libssl-dev libzstd-dev sshpass"
+PY_TOOLS=("python-dotenv")
+
+# shellcheck disable=1090
+# Import logger
+. "${LOGGER_EXEC}"
+log "== ${ME} Started =="
+
+# Load configuration
+source "${ROOT}/.config/default.env"
+# shellcheck disable=2154
+IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+for config in "${CONFIGS[@]}"; do
+  log "Loading config: ${config}"
+  # shellcheck source=.config/default.env
+  source <(sops -d "${ROOT}/${config}" || true)
+done
+
+# shellcheck disable=1090
+# Import xe library
+. "${XE_EXEC}"
+
+# shellcheck disable=1090
+# Import shell-utils
+. "${SHUTILS_EXEC}"
+
+# Call main function
+main
+
+# Exit gracefully
+end

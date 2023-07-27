@@ -1,6 +1,8 @@
 # Configuration
 .config/*
-!.config/default.config
+!.config/default.env
+!.config/demers.env
+!.config/sonia.env
 
 # Build directory
 build/*

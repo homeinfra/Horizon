@@ -5,10 +5,10 @@
 # Thus, also document the different general steps.
 # This is the main entry point
 
-export LOCAL_CONFIG=".config/demers.config:.config/local.config"
+export LOCAL_CONFIG=".config/demers.env:.config/local.env"
 
 # Configre local environment
-./src/client/setup-local.sh
+./src/client/setup-local
 
 # Deploy Horizon
-./src/bootstrap/01-vm/horizon.sh
+./src/bootstrap/01-vm/horizon

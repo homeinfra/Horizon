@@ -1,0 +1,13 @@
+{
+  "shellcheck.useWorkspaceRootAsCwd": true,
+  "shellcheck.customArgs": ["-o", "all", "-x"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.shellcheck": true
+  },
+  "python.linting.pylamaEnabled": true,
+  "python.linting.enabled": true,
+  "python.linting.pylamaArgs": ["-o", ".pylama.ini"],
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+  },
+}
