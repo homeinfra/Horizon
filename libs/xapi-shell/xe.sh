@@ -607,12 +607,15 @@ xe_find_disk() {
   # Find the attached disk
   VDI_UUID=""
   local RES=0
+  local code=0
   local cmd="\"${XE}\" ${LOGIN} vm-disk-list uuid=\"${VM_UUID}\" vdi-params=uuid,name-label vbd-params=none"
+  RES=$(eval "${cmd}")
+  code=$?
   # shellcheck disable=2312
-  if ! RES=$(eval "${cmd}" | grep ': '); then
-        logFatal "XE Failed to list disks"
+  if [[ ${code} -ne 0 ]]; then
+        logFatal "XE Failed to list disks (${code}): ${RES}"
   elif   [[ -n "${RES}" ]]; then
-    RES=${RES%$'\r'}
+    RES=$(echo "${RES%$'\r'}" | grep ': ')
     # We might be returned multiple disks. Loop through them
     local line_count=0
     local CUR_UUID=""
@@ -638,7 +641,7 @@ xe_find_disk() {
       line_count=$((line_count + 1))
     done <<< "${RES}"
   else
-    logWarn "No disks present"
+    logWarn "No disks present: ${RES}"
   fi
 }
 
