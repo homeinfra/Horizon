@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# XCP-ng plugin file to configure Halley on startup
+
+plugin_halley_start() {
+  logInfo "Starting Halley"
+
+  # Load configuration
+  export LOG_LEVEL=0
+  # shellcheck disable=SC1091
+  if ! config_load "${STH_ROOT}/data/local.env"; then
+    return 1
+  elif [[ -z "${CONFIG_DIR}" ]]; then
+    logError "CONFIG_DIR is not set"
+    return 1
+  elif [[ -z "${XAPI_DIR}" ]]; then
+    logError "XAPI_DIR is not set"
+    return 1
+  elif ! config_load "${STH_ROOT}/data/hardware.env"; then
+    return 1
+  elif ! config_load "${CONFIG_DIR}/${NAS_DISK_CONFIG}"; then
+    return 1
+  elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
+    return 1
+  else
+    NAS_VM_SR="${!NAS_VM_SR}"
+    if [[ -z "${NAS_VM_SR}" ]]; then
+      logError "NAS_VM_SR is not set"
+      return 1
+    elif [[ -z "${DRIVE_MAX}" ]]; then
+      logError "DRIVE_MAX is not set"
+      return 1
+    fi
+  fi
+
+  if ! plug_nas_disks; then
+    logError "Failed to plug NAS disks"
+    return 1
+  fi
+
+  if ! xe_vm_start "${NAS_VM_NAME}"; then
+    logError "Failed to start VM"
+    return 1
+  fi
+
+  logInfo "Finished executing properly"
+}
+
+plug_nas_disks() {
+
+  declare -A expected_disks
+  local var_d_dev var_d
+  local drives=()
+  for disk in $(seq 1 "${DRIVE_MAX}"); do
+    var_d_dev="D${disk}_DEV"
+    var_d="D${disk}"
+    if [[ -n "${!var_d_dev}" ]]; then
+      expected_disks["${var_d}_NAME"]="${!var_d_dev}"
+      drives+=("${var_d}")
+    fi
+  done
+
+  logInfo "Make sure the following disks are attached: ${drives[*]}"
+
+  # Match with the VDI UUIDs
+  local vdi_uuids vdi_uuid location cmd res
+  if ! xe_stor_vdis vdi_uuids "${NAS_VM_SR}"; then
+    logError "Failed to get VDI UUIDs"
+    return 1
+  fi
+  for vdi_uuid in "${vdi_uuids[@]}"; do
+    cmd=(vdi-param-list "uuid=${vdi_uuid}")
+    if ! xe_exec res "${cmd[@]}"; then
+      logError "Failed to get VDI parameters"
+      return 1
+    elif [[ -z "${res}" ]]; then
+      logError "No VDI parameters returned"
+      return 1
+    elif ! xe_parse_params "${res}"; then
+      logError "Failed to parse VDI parameters"
+      return 1
+    elif [[ -z "${xe_params_array["location"]}" ]]; then
+      logWarn "VDI has no location"
+      continue
+    fi
+
+    location="$(basename "${xe_params_array["location"]}")"
+    for disk in "${drives[@]}"; do
+      if [[ "${location}" == "${expected_disks["${disk}_NAME"]}" ]]; then
+        logInfo "Found disk ${disk} (${location})"
+        expected_disks["${disk}_UUID"]="${xe_params_array["uuid"]}"
+        break
+      fi
+    done
+  done
+
+  # Make sure we have a UUID for all the drives
+  local disk_uuid
+  local vdi_list=()
+  for disk in "${drives[@]}"; do
+    disk_uuid="${expected_disks["${disk}_UUID"]}"
+    vdi_list+=("${disk_uuid}")
+    if [[ -z "${disk_uuid}" ]]; then
+      logError "Failed to find UUID for disk ${disk}"
+      return 1
+    fi
+  done
+
+  # Attach only and all these drives from the SR to the VM
+  if ! xe_vm_attach_all_but_only_from_sr "${NAS_VM_NAME}" "${NAS_VM_SR}" "${vdi_list[@]}"; then
+    logError "Failed to attach disks to VM"
+    return 1
+  fi
+
+  return 0
+}
+
+NAS_VM_NAME="@VM_NAME_NAS@"
+NAS_VM_SR="XCP_DRIVE_SR_NAME"
+NAS_DISK_CONFIG="nas.env"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+STH_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${STH_SOURCE}" ]]; do # resolve $STH_SOURCE until the file is no longer a symlink
+  STH_ROOT=$(cd -P "$(dirname "${STH_SOURCE}")" >/dev/null 2>&1 && pwd)
+  STH_SOURCE=$(readlink "${STH_SOURCE}")
+  [[ ${STH_SOURCE} != /* ]] && STH_SOURCE=${STH_ROOT}/${STH_SOURCE} # if $STH_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+STH_ROOT=$(cd -P "$(dirname "${STH_SOURCE}")" >/dev/null 2>&1 && pwd)
+STH_ROOT=$(realpath "${STH_ROOT}/../..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Import dependencies
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  echo "Failed to import config.sh"
+  exit 1
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  plugin_halley_start
+  exit $?
+fi

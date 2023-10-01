@@ -1,0 +1,98 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0  # Use latest available version
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=512']
+        exclude: 'libs/xe/xe'
+      - id: check-ast  # Python
+      - id: check-case-conflict
+      - id: check-docstring-first  # Python
+      - id: check-executables-have-shebangs  # Shell
+      - id: check-shebang-scripts-are-executable  # Shell
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml  # YAML
+      - id: destroyed-symlinks
+      - id: detect-private-key
+      - id: double-quote-string-fixer
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: forbid-new-submodules
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: requirements-txt-fixer  # Python
+      - id: sort-simple-yaml  # YAML
+      - id: trailing-whitespace
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.10.0-2  # Use the latest release of shfmt
+    hooks:
+      - id: shfmt  # Shell
+        args: [-i, '2', -d]
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0  # Spellcheck uses version 0.9.0 installed locally
+    hooks:
+      - id: shellcheck  # Shell
+        args: [--enable, all, -x]
+      - id: git-check
+      - id: git-dirty
+      - id: script-must-have-extension  # Shell
+        types: [shell, non-executable]
+      - id: script-must-not-have-extension  # Shell
+        types: [shell, executable]
+      - id: forbid-binary
+        exclude: 'libs/xe/xe'
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint  # Markdown
+        args: ["--fix"]
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.4
+    hooks:
+      - id: forbid-crlf
+      - id: forbid-tabs
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.19.1
+    hooks:
+      - id: pyupgrade  # Python
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint  # YAML
+        args: [--format, parsable, --strict]
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.14.0
+    hooks:
+      - id: yamlfmt  # YAML
+  - repo: local
+    hooks:
+      - id: my-dotenv-linter  # dotenv
+        args: [--skip, LowercaseKey]
+        name: dotenv-linter
+        pass_filenames: true
+        language: system
+        entry: dotenv-linter
+        files: '^(.*\.env)$'
+  - repo: https://github.com/klen/pylama
+    rev: 8.4.1
+    hooks:
+      - id: pylama  # Python
+        additional_dependencies:
+          - setuptools
+        args: [-o, .pylama.ini]
+        exclude: src/hal/qnaplcd/__init__.py
+  - repo: https://github.com/AleksaC/hadolint-py
+    rev: v2.12.0.3
+    hooks:
+      - id: hadolint  # Dockerfile
+  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.14.0  # Latest version from macisamuele
+    hooks:
+      - id: pretty-format-ini  # Ini
+        args: [--autofix]
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.0  # Use latest version from bmares
+    hooks:
+      - id: check-json5  # json

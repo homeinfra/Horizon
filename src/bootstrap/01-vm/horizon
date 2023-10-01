@@ -27,25 +27,107 @@ main() {
 test_is_admin() {
   # Test if we are running as administrator (needed for port_forwarding)
   if [[ "${IS_WSL}" -eq 1 ]]; then
-    if ! net.exe session &> /dev/null; then
+    if ! net.exe session &>/dev/null; then
       logFatal "You must run this console with elevated administrative privileges"
     fi
   fi
 }
 
+# $1: Hostname for that key
+load_ssh_key() {
+  SSH_PUB=""
+  SSH_PRIV=""
+
+  if [[ -z "$1" ]]; then
+    logFatal "No hostname provided"
+  fi
+
+  local res=0
+  local private_key="${ROOT}/${SSH_PATH}/id_${1}"
+  local public_key="${ROOT}/${SSH_PATH}/id_${1}.pub"
+
+  if [[ ! -f "${private_key}" ]] || [[ ! -f "${public_key}" ]]; then
+    logInfo "SSH keys for $1 don't exist. Create them..."
+
+    ssh-keygen -t ecdsa -b 521 -N '' -f "${private_key}"
+    res=$?
+    if [[ "${res}" -eq 0 ]]; then
+      logTrace "Successfully created SSH keypair for ${1}"
+
+      # Encrypt private key
+      sops -e --output-type yaml --in-place --age "${SOPS_AGE_PUB}" "${private_key}"
+      res=$?
+      if [[ "${res}" -eq 0 ]]; then
+        logInfo "Private key for ${1} encrypted successfully"
+        SSH_PRIV="${private_key}"
+        SSH_PUB="${public_key}"
+
+        # Best effort
+        git add "${SSH_PUB}" "${SSH_PRIV}"
+        res=$?
+        if [[ "${res}" -eq 0 ]]; then
+          logTrace "Successfully added to Git"
+        else
+          logWarn "Could not add the new keys to git: ${res}"
+        fi
+
+      else
+        rm -f "${private_key}" "${public_key}"
+        echo -e "#######################################################"
+        echo -e "####### WARNING WARNING WARNING WARNING WARNING #######"
+        echo -e "#######################################################"
+        echo -e ""
+        echo -e "Unprotected SSH keys might have been left in the repo. See:"
+        echo -e "${private_key}"
+        echo -e "${public_key}"
+        logFatal "Errror while encrypthing SSH keys for ${1} (${res})"
+      fi
+
+    else
+      rm -f "${private_key}" "${public_key}"
+      echo -e "#######################################################"
+      echo -e "####### WARNING WARNING WARNING WARNING WARNING #######"
+      echo -e "#######################################################"
+      echo -e ""
+      echo -e "Unprotected SSH keys might have been left in the repo. See:"
+      echo -e "${private_key}"
+      echo -e "${public_key}"
+      logFatal "Errror while generating SSH keys for ${1} (${res})"
+    fi
+  else
+    logInfo "SSH keys found"
+    SSH_PRIV="${private_key}"
+    SSH_PUB="${public_key}"
+  fi
+
+  # Obtain the public key
+  SSH_KEY=$(sed -e 's/^\([^ ]* *[^ ]*\).*$/\1/' <"${public_key}")
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logFatal "Failed to obtain public SSH key (${res})"
+  else
+    logTrace "Will be using key: ${SSH_KEY}"
+  fi
+}
+
 deploy_Sagittarius() {
   local host=Sagittarius
+
+  local IGNITION_IN="${ROOT}/${IG_IN}"
+
   local host_bindir="${ROOT}/build/${host}"
   export LOCAL_CONFIG=".config/demers.env:.config/local.env"
 
   mkdir -p "${host_bindir}"
-  pushd "${host_bindir}" > /dev/null || logFatal "No bindir"
+  pushd "${host_bindir}" >/dev/null || logFatal "No bindir"
 
-    # Generate Butane for this node
+  load_ssh_key "${host}"
+
+  # Generate Butane for this node
   cp "${IGNITION_IN}" custom.bu
   # shellcheck disable=2154
-  sed -i -e "s/<hostname>/${host}/" \
-    -e "s/<ssh_key>/${SSH_KEY}/" custom.bu
+  sed -i -e "s,<hostname>,${host}," \
+    -e "s,<ssh_key>,${SSH_KEY}," custom.bu
 
   # Convert to ignition file
   if ! ${BUTANE} -o "custom.ig" "custom.bu"; then
@@ -64,11 +146,12 @@ deploy_Sagittarius() {
 
   # Try SSH. Abort in 20 minutes (OS install might take a while)
   logInfo "Checking if the new VM is online"
+  local cmd=0
   local timeout_min=20
   local abort_by=$(($(date +%s) + $((timeout_min * 60))))
   local expected_hostname=0
   expected_hostname=${FQDN//"${HOSTNAME}"/"${host}"}
-  local cmd="ssh -oStrictHostKeyChecking=no core@${expected_hostname} 'exit'"
+  cmd="ssh -F /dev/null -o \"IdentitiesOnly=yes\" -i <(sops -d \"${SSH_PRIV}\") core@${expected_hostname} 'exit'"
   eval "${cmd}"
   local err=$?
   while [[ ${err} -gt 0 ]]; do
@@ -87,7 +170,7 @@ deploy_Sagittarius() {
   stop_server
 
   if [[ "${err}" -ne 0 ]]; then
-    logFata "VM ${host} never came online"
+    logFatal "VM ${host} never came online"
   else
     if ! ${DEPLOY_EXEC} eject-iso "${host}"; then
       logFatal "Failed to eject ISO"
@@ -96,7 +179,7 @@ deploy_Sagittarius() {
     fi
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 deploy_Messier() {
@@ -142,7 +225,7 @@ start_server() {
 
   # Start webserver for Fedora CoreOS ignition
   SERVER_PID=""
-  if ! (python "${SERVER_EXEC}" &> /dev/null &) then
+  if ! ("${SERVER_EXEC}" &>/dev/null &) then
     logFatal "Cannot launch HTTPS server"
   else
     SERVER_PID=$(pgrep 'python')
@@ -156,7 +239,7 @@ start_server() {
   # Start WSL port forwarding
   if [[ "${IS_WSL}" -eq 1 ]]; then
     FORWARD_PID=""
-    if ! (port_forwarding &> /dev/null &) then
+    if ! (port_forwarding &>/dev/null &) then
       pkill -9 -f python
       logFatal "Could not launch WSL port_forwarding"
     else
@@ -277,7 +360,7 @@ upload_iso() {
 }
 
 download_butane() {
-  pushd "${COREOS_BINDIR}" > /dev/null || logFatal "No CoreOS bindir"
+  pushd "${COREOS_BINDIR}" >/dev/null || logFatal "No CoreOS bindir"
 
   local base=0
   # shellcheck disable=2154
@@ -287,7 +370,7 @@ download_butane() {
   echo "Make sure we have butane locally: ${base}"
   if [[ -f "${base}" ]]; then
     logInfo "Butane is already downloaded"
-    popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+    popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
     return 0
   fi
 
@@ -298,7 +381,7 @@ download_butane() {
     logInfo "Butane downloaded to: ${BUTANE}"
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 modify_iso() {
@@ -314,11 +397,11 @@ modify_iso() {
     return 0
   fi
 
-  pushd "${COREOS_BINDIR}" > /dev/null || logFatal "No CoreOS bindir"
+  pushd "${COREOS_BINDIR}" >/dev/null || logFatal "No CoreOS bindir"
 
   # shellcheck disable=2154
   # Generate the Butane file we want to embedded in the ISO
-  cat > "${butane_file}" <<- EOF
+  cat >"${butane_file}" <<-EOF
 variant: fcos
 version: 1.5.0
 ignition:
@@ -346,7 +429,7 @@ EOF
     logInfo "Custom ISO generated: ${ISO_CUSTOM}"
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 ###########################
@@ -360,8 +443,7 @@ ME="$(basename "$0")"
 COREOS_BINDIR=${ROOT}/build/coreos-iso
 COREOS_EXEC=$(realpath ~/.cargo/bin/coreos-installer)
 
-IGNITION_IN="${ROOT}/data/custom.ig.in"
-SERVER_EXEC="${ROOT}/src/bootstrap/01-vm/ignition_server.py"
+SERVER_EXEC="${ROOT}/src/bootstrap/01-vm/ignition_server"
 DEPLOY_EXEC="${ROOT}/src/bootstrap/01-vm/deploy_vm"
 LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
 SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
@@ -375,7 +457,7 @@ fi
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 
 """
@@ -21,12 +21,12 @@ def main():
   """Entry point for the ignition server."""
 
   log_config = LoggerConfig()
-  logging.info("== %s Started ==", Path(__file__).name)
+  logging.info('== %s Started ==', Path(__file__).name)
   load_config(log_config)
 
   Server().serve()
 
-  logging.info("== %s Exited gracefully ==", Path(__file__).name)
+  logging.info('== %s Exited gracefully ==', Path(__file__).name)
 
 
 class Server: #noqa
@@ -44,27 +44,27 @@ class Server: #noqa
 
   def serve(self):
     """Start the server."""
-    self.__log.info("Starting webserver on port %d", self.__port)
+    self.__log.info('Starting webserver on port %d', self.__port)
 
     httpd = HTTPServer(('', self.__port), SimpleHTTPRequestHandler)
 
-    self.__log.info("Adding TLS wrapper using:\nkey=%s\ncert=%s\nca=%s",
+    self.__log.info('Adding TLS wrapper using:\nkey=%s\ncert=%s\nca=%s',
                     self.__key, self.__cert, self.__ca)
 
     # Need to decrypt the private key
     with tempfile.NamedTemporaryFile() as file:
-      subprocess.run(["sops", "--decrypt", f"{self.__key}"], stdout=file, check=True)
+      subprocess.run(['sops', '--decrypt', f'{self.__key}'], stdout=file, check=True)
 
       context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
       context.load_verify_locations(self.__ca)
       context.load_cert_chain(self.__cert, file.name)
       httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 
-      self.__log.info("Serve...")
+      self.__log.info('Serve...')
       try:
         httpd.serve_forever()
       except BaseException: # noqa
-        self.__log.exception("Server terminated")
+        self.__log.exception('Server terminated')
 
 
 class LoggerConfig: #noqa
@@ -77,7 +77,7 @@ class LoggerConfig: #noqa
     self.__console = logging.StreamHandler()
     self.__file = logging.FileHandler(filename=self.__filename, encoding='utf-8', mode='a+')
     logging.basicConfig(handlers=[self.__console, self.__file], level=logging.NOTSET,
-                        datefmt="%F %H:%M:%S", format="%(asctime)s %(levelname)-5s %(message)s")
+                        datefmt='%F %H:%M:%S', format='%(asctime)s [%(levelname)-7s] %(message)s')
 
     # Levels as defined by logger-shell
   def _set_level(self, level):
@@ -97,37 +97,37 @@ class LoggerConfig: #noqa
 
   def reconfigure(self):
     """Force a reconfiguration of the logger."""
-    if "LOG_LEVEL" in os.environ:
-      level = int(os.environ["LOG_LEVEL"])
+    if 'LOG_LEVEL' in os.environ:
+      level = int(os.environ['LOG_LEVEL'])
       self._set_level(level)
 
-      if "LOG_CONSOLE" in os.environ:
-        if int(os.environ["LOG_CONSOLE"]) == 0:
+      if 'LOG_CONSOLE' in os.environ:
+        if int(os.environ['LOG_CONSOLE']) == 0:
           logging.root.removeHandler(self.__console)
         else:
           logging.root.addHandler(self.__console)
 
 def load_config(log_config):
   """Load project configuration."""
-  filename=f"{ROOT}/.config/default.env"
-  logging.info("Loading configuration from: %s", filename)
+  filename=f'{ROOT}/.config/default.env'
+  logging.info('Loading configuration from: %s', filename)
   load_dotenv(filename, override=True)
 
   all_config_files = os.environ['LOCAL_CONFIG']
   for cfile in re.finditer(r'[^:]+', all_config_files):
-    filename=f"{ROOT}/{cfile.group(0)}"
-    logging.info("Loading configuration from: %s", filename)
+    filename=f'{ROOT}/{cfile.group(0)}'
+    logging.info('Loading configuration from: %s', filename)
     with tempfile.NamedTemporaryFile() as file:
-      subprocess.run(["sops", "--decrypt", filename], stdout=file, check=True)
+      subprocess.run(['sops', '--decrypt', filename], stdout=file, check=True)
       load_dotenv(file.name, override=True)
 
   log_config.reconfigure()
 
 
 # Get ROOT of this repo
-with subprocess.Popen(["git", "rev-parse", "--show-toplevel"], stdout=subprocess.PIPE) as process:
-  ROOT = process.communicate()[0].decode("utf-8").strip()
+with subprocess.Popen(['git', 'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE) as process:
+  ROOT = process.communicate()[0].decode('utf-8').strip()
 
 # Entry point
-if __name__ == "__main__":
+if __name__ == '__main__':
   main()

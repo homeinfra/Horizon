@@ -85,7 +85,7 @@ validate_params() {
       logFatal "'${VM_RAM}' is not a valid ram size"
     else
       local number=${BASH_REMATCH[1]}
-         local unit=${BASH_REMATCH[2]}
+      local unit=${BASH_REMATCH[2]}
       if [[ "${unit}" == "MiB" ]]; then
         VM_RAM=${number}
       elif [[ "${unit}" == "GiB" ]]; then
@@ -133,62 +133,62 @@ parse() {
     for i in "${ARGS[@]}"; do
       arg_count=$((arg_count + 1))
       case ${i} in
-        -h | --help)
+      -h | --help)
+        print_help
+        end
+        ;;
+      -v | --version)
+        ${SEMVER_EXEC}
+        end
+        ;;
+      -t=?*)
+        VM_TEMPLATE="${i##*=}"
+        logTrace "Using Template ${VM_TEMPLATE}"
+        ;;
+      -r=?*)
+        VM_RAM="${i##*=}"
+        logTrace "Using RAM size ${VM_RAM}"
+        ;;
+      -d=?*)
+        VM_DISK="${i##*=}"
+        logTrace "Using Disk size ${VM_DISK}"
+        ;;
+      -c=?*)
+        VM_CPU="${i##*=}"
+        logTrace "Using ${VM_CPU} CPUs"
+        ;;
+      --iso=?*)
+        VM_ISO="${i##*=}"
+        logTrace "Using ISO ${VM_ISO}"
+        ;;
+      --* | -*)
+        logFatal "Unknown option: \"${i}\" in: ${ARGS[*]}"
+        ;;
+      *)
+        param_count=$((param_count + 1))
+        if [[ ${param_count} -eq 1 ]]; then # Should be COMMAND
+          case ${i} in
+          vm)
+            VM_NAME="${ARGS[$((i + 1))]}"
+            logTrace "Configuring VM ${VM_NAME}"
+            ;;
+          upload-iso)
+            UPLOAD_FILE="${ARGS[$((i + 1))]}"
+            logTrace "Uploading File: ${UPLOAD_FILE}"
+            ;;
+          eject-iso)
+            EJECT_NAME="${ARGS[$((i + 1))]}"
+            logTrace "Eject iso on: ${EJECT_NAME}"
+            ;;
+          *)
+            logFatal "Unknown command \"${i}\" (Argument ${arg_count} of ${NUM_ARGS}): ${ARGS[*]}"
+            ;;
+          esac
+        elif [[ ${param_count} -gt 2 ]]; then
           print_help
-          end
-          ;;
-        -v | --version)
-          ${SEMVER_EXEC}
-          end
-          ;;
-        -t=?*)
-          VM_TEMPLATE="${i##*=}"
-          logTrace "Using Template ${VM_TEMPLATE}"
-          ;;
-        -r=?*)
-          VM_RAM="${i##*=}"
-          logTrace "Using RAM size ${VM_RAM}"
-          ;;
-        -d=?*)
-          VM_DISK="${i##*=}"
-          logTrace "Using Disk size ${VM_DISK}"
-          ;;
-        -c=?*)
-          VM_CPU="${i##*=}"
-          logTrace "Using ${VM_CPU} CPUs"
-          ;;
-        --iso=?*)
-          VM_ISO="${i##*=}"
-          logTrace "Using ISO ${VM_ISO}"
-          ;;
-        --* | -*)
-          logFatal "Unknown option: \"${i}\" in: ${ARGS[*]}"
-          ;;
-        *)
-          param_count=$((param_count + 1))
-          if [[ ${param_count} -eq 1 ]]; then # Should be COMMAND
-            case ${i} in
-              vm)
-                VM_NAME="${ARGS[$((i + 1))]}"
-                logTrace "Configuring VM ${VM_NAME}"
-                ;;
-              upload-iso)
-                UPLOAD_FILE="${ARGS[$((i + 1))]}"
-                logTrace "Uploading File: ${UPLOAD_FILE}"
-                ;;
-              eject-iso)
-                EJECT_NAME="${ARGS[$((i + 1))]}"
-                logTrace "Eject iso on: ${EJECT_NAME}"
-                ;;
-              *)
-                logFatal "Unknown command \"${i}\" (Argument ${arg_count} of ${NUM_ARGS}): ${ARGS[*]}"
-                ;;
-            esac
-          elif [[ ${param_count} -gt 2 ]]; then
-            print_help
-            logFatal "Unexpected parameter \"${i}\" (Argument ${arg_count} of ${NUM_ARGS}): ${ARGS[*]}"
-          fi
-          ;;
+          logFatal "Unexpected parameter \"${i}\" (Argument ${arg_count} of ${NUM_ARGS}): ${ARGS[*]}"
+        fi
+        ;;
       esac
     done
   fi
@@ -251,7 +251,7 @@ log "== ${ME} Started =="
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env

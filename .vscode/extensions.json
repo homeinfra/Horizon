@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "timonwong.shellcheck",
+    "mhutchie.git-graph",
+    "signageos.signageos-vscode-sops",
+    "ms-azuretools.vscode-docker",
+    "ms-python.python",
+  ]
+}
