@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/mvdan/sh
+    rev: v3.5.1  # Use the latest release of shfmt
+    hooks:
+      - id: shfmt
+        args: ["-i", "2", "-d"]
+        name: shfmt
+        entry: shfmt
+        language: system
+        types: [sh]
+
+  - repo: https://github.com/koalaman/shellcheck
+    rev: v0.8.0  # Use the latest release of shellcheck
+    hooks:
+      - id: shellcheck
+        args: ["--enable", "all", "-x"]
+        name: shellcheck
+        entry: shellcheck
+        language: system
+        types: [sh]
+
+  - repo: https://github.com/klen/pylama
+    rev: v8.4.1  # Use the latest release of pylama
+    hooks:
+      - id: pylama
+        args: ["-o", ".pylama.ini"]
+        name: pylama
+        entry: pylama
+        files: \.(py)$

@@ -1,0 +1,296 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to manage the development container.
+#
+# NOTE: Designed for execution under Ubuntu WSL (Windows Subsystem for Linux)
+set -eo pipefail
+
+main() {
+  declare cfg
+  declare env
+
+  parse cfg env
+  logInfo "Calling ${cfg} container for environment ${env}"
+
+  eval "${cfg}" "${env}"
+}
+
+# Buid the container
+#
+# Parameters:
+#   $_env[in]: Name of the service to build
+build() {
+  local _env="$1"
+
+  logInfo "Building images..."
+  cd "${ROOT}/src" && docker-compose build "prod_base"
+  cd "${ROOT}/src" && docker-compose build "prod"
+  if [[ "${_env}" == "dev" ]]; then
+    cd "${ROOT}/src" && docker-compose build "${_env}"
+  fi
+  logInfo "Image built"
+}
+
+# Start the container
+#
+# Parameters:
+#   $_env[in]: Container to start
+# shellcheck disable=SC2317
+start() {
+  local _env="$1"
+  local container_name="horizon-${_env}"
+  local image_name="${container_name}-image"
+
+  # Check if container is found
+  if docker ps -a --format '{{.Names}}' | grep -q "^""${container_name}""$"; then
+    logInfo "Container ${container_name} found"
+
+    # Check container status
+    local status
+    status=$(docker inspect -f '{{.State.Running}}' "${container_name}")
+
+    if [[ "${status}" == "true" ]]; then
+      logInfo "Container is already running. Nothing to do."
+    else
+      logInfo "Restarting container..."
+      docker container restart "${container_name}" > /dev/null
+      logInfo "Container restarted"
+    fi
+  # Container not found
+  else
+    logInfo "Container ${container_name} NOT found"
+
+    if ! docker images -q "${image_name}" | grep -q .; then
+      logInfo "Image \"${image_name}\" does not seem to exist. Try building-it first."
+      build "${_env}"
+    fi
+
+    # We need the git repository root
+    # This is the path we wish to use as a current working directory
+    desired_root=${ROOT}
+
+    # Find the top of the git repo
+    if repo_root=$(git rev-parse --show-toplevel); then
+      if [[ -z "${repo_root}"  ]]; then
+        logFatal "Unable to determine the root of the current repo"
+      fi
+    else
+      logFatal "Failed to check for root of repo"
+    fi
+
+    # Check if we are inside a submodule
+    if parent_repo=$(git rev-parse --show-superproject-working-tree); then
+      if [[ -n "${parent_repo}"  ]]; then
+        repo_root="${parent_repo}"
+      fi
+    else
+      logFatal "Failed to check if we are in a submodule"
+    fi
+
+    # Find relative path to root of repo
+    relative_root="${desired_root#"${repo_root}"}"
+
+    # Pick the correct user based on env
+    local user=${CLIENT_USER}
+    if [[ "${_env}" == "dev" ]]; then
+      user=${DEV_USER}
+    fi
+
+    # TODO: Maybe add the "--init" option later
+    #       Maybe we'll have to define ports later. Ex: -p 10080:8080 -p 10022:22 -p 7556-7559:7556-7559
+    cmd="docker run --user ${user} -dit \
+-v ${repo_root}:/home/${user}/src \
+-e VER_HOST=$(hostname) \
+-w /home/${user}/src${relative_root} \
+--name ${container_name} ${image_name}"
+
+    logInfo "Starting container using command:\n${cmd}"
+    eval "${cmd}" >/dev/null
+    logInfo "Container started"
+  fi
+}
+
+# Stop the container
+#
+# Parameters:
+#   $_env[in]: Container to stop
+stop() {
+  local _env="$1"
+  local container_name="horizon-${_env}"
+
+  # First check if container exists
+  if docker ps -q --filter "name=${container_name}" | grep -q .; then
+    logInfo "Stopping container..."
+    docker stop "${container_name}" >/dev/null
+    logInfo "Container stopped"
+  else
+    logWarn "No container named \"${container_name}\" was found to be running!"
+  fi
+}
+
+# Delete the container
+#
+# Parameters:
+#   $_env[in]: Container to stop
+# shellcheck disable=SC2317
+delete() {
+  local _env="$1"
+  local container_name="horizon-${_env}"
+
+  if docker ps -a --format '{{.Names}}' | grep -q "^""${container_name}""$"; then
+
+    # Check container status
+    local status
+    status=$(docker inspect -f '{{.State.Running}}' "${container_name}")
+
+    if [[ "${status}" == "true" ]]; then
+      logWarn "Container is currently running. Stop it first."
+      stop "${_env}"
+    fi
+
+    logInfo "Deleting container..."
+    docker rm "${container_name}" >/dev/null
+    logInfo "Container deleted"
+  else
+    logWarn "No contained named \"${container_name}\" was found!"
+  fi
+}
+
+# Parse arguments received via command line
+#
+# Parameters:
+#   $_fct[out]: configuration to make
+#   $_env[out]: environnement to configure
+parse() {
+  declare -n _cfg="$1"
+  declare -n _env="$2"
+
+  _cfg="start"
+  _env="dev"
+
+  if [[ ${NUM_ARGS} -eq 0 ]]; then
+    : # Default behavior, attach to a prod environment
+  else
+    local arg_counter=0
+    for i in "${ARGS[@]}"; do
+      arg_counter=$((arg_counter + 1))
+
+      # Parse config command
+      if [[ ${arg_counter} -eq 1 ]]; then
+        case ${i} in
+          start | stop | build | delete)
+            _cfg="${i}"
+            continue
+            ;;
+          *) ;;
+
+        esac
+      fi
+      case ${i} in
+        -h | --help)
+          print_help
+          end
+          ;;
+        -v | --version)
+          ${SEMVER_EXEC}
+          end
+          ;;
+        --env=?*)
+          local r_env=${i##*=}
+          if [[ "${r_env}" == "prod" || "${r_env}" == "dev" ]]; then
+            _env="${r_env}"
+          else
+            echo "ERROR: Unknown environment \"${r_env}\"."
+            exit 1
+          fi
+          ;;
+        *)
+          echo "ERROR: Argument #${arg_counter} of ${NUM_ARGS} unexpected: \"${i}\" in \"${ARGS[*]}\""
+          exit 1
+          ;;
+      esac
+    done
+  fi
+}
+
+print_help() {
+  echo "Script to manage the docker environment. This is the entry point to switch into the environment"
+  echo ""
+  echo "Usage: ${ME} [build|start|stop|delete] [--env=<env>]"
+  echo "       ${ME} [-h|--help|]"
+  echo "       ${ME} [-v|--version]"
+  echo ""
+  echo "Commands:"
+  echo "  build         Build the container"
+  echo "  start         Start (and build if needed) the container"
+  echo "  stop          Stop the container"
+  echo "  stop          Delete the container"
+  echo ""
+  echo "Options:"
+  echo "  --env         Environment to be configured."
+  echo "  -h,--help     Print this usage message"
+  echo "  -v,--version  Print the version of this tool"
+  echo ""
+  echo "Parameters:"
+  echo "  <env>         Possibile values are: \"prod\" or \"dev\" (default)."
+  echo ""
+}
+
+end() {
+  log "== ${ME} Exited gracefully =="
+
+  # If we reach here, execution completed succesfully
+  exit 0
+}
+
+###########################
+###### Startup logic ######
+###########################
+
+# Keep a copy of entry arguments
+NUM_ARGS="$#"
+ARGS=("$@")
+
+# Name of this script
+ME="$(basename "$0")"
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${SOURCE}" ]]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "${SOURCE}")"  > /dev/null 2>&1 && pwd)
+  SOURCE=$(readlink "${SOURCE}")
+  [[ ${SOURCE} != /* ]] && SOURCE=${DIR}/${SOURCE} # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR=$( cd -P "$( dirname "${SOURCE}")"  > /dev/null 2>&1 && pwd)
+
+ROOT=$(realpath "${DIR}/../..")
+LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
+SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
+SEMVER_EXEC="${ROOT}/tools/semver/semver"
+
+# Import logger
+# shellcheck source=tools/logger-shell/logger.sh
+. "${LOGGER_EXEC}"
+log "== ${ME} Started =="
+
+# Load configuration
+source "${ROOT}/.config/default.env"
+# shellcheck disable=2154
+IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+for config in "${CONFIGS[@]}"; do
+  log "Loading config: ${config}"
+  # shellcheck source=.config/default.env
+  source <(sops -d "${ROOT}/${config}" || true)
+done
+
+# Import shell-utils
+# shellcheck source=tools/shell-utils/shell-utils.sh
+. "${SHUTILS_EXEC}"
+
+# Call main function
+main
+
+# Exit gracefully
+end
