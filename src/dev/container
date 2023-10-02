@@ -20,6 +20,7 @@ main() {
 #
 # Parameters:
 #   $_env[in]: Name of the service to build
+# shellcheck disable=SC2317
 build() {
   local _env="$1"
 
@@ -54,7 +55,7 @@ start() {
       logInfo "Container is already running. Nothing to do."
     else
       logInfo "Restarting container..."
-      docker container restart "${container_name}" > /dev/null
+      docker container restart "${container_name}" >/dev/null
       logInfo "Container restarted"
     fi
   # Container not found
@@ -72,7 +73,7 @@ start() {
 
     # Find the top of the git repo
     if repo_root=$(git rev-parse --show-toplevel); then
-      if [[ -z "${repo_root}"  ]]; then
+      if [[ -z "${repo_root}" ]]; then
         logFatal "Unable to determine the root of the current repo"
       fi
     else
@@ -81,7 +82,7 @@ start() {
 
     # Check if we are inside a submodule
     if parent_repo=$(git rev-parse --show-superproject-working-tree); then
-      if [[ -n "${parent_repo}"  ]]; then
+      if [[ -n "${parent_repo}" ]]; then
         repo_root="${parent_repo}"
       fi
     else
@@ -115,6 +116,7 @@ start() {
 #
 # Parameters:
 #   $_env[in]: Container to stop
+# shellcheck disable=SC2317
 stop() {
   local _env="$1"
   local container_name="horizon-${_env}"
@@ -179,36 +181,36 @@ parse() {
       # Parse config command
       if [[ ${arg_counter} -eq 1 ]]; then
         case ${i} in
-          start | stop | build | delete)
-            _cfg="${i}"
-            continue
-            ;;
-          *) ;;
+        start | stop | build | delete)
+          _cfg="${i}"
+          continue
+          ;;
+        *) ;;
 
         esac
       fi
       case ${i} in
-        -h | --help)
-          print_help
-          end
-          ;;
-        -v | --version)
-          ${SEMVER_EXEC}
-          end
-          ;;
-        --env=?*)
-          local r_env=${i##*=}
-          if [[ "${r_env}" == "prod" || "${r_env}" == "dev" ]]; then
-            _env="${r_env}"
-          else
-            echo "ERROR: Unknown environment \"${r_env}\"."
-            exit 1
-          fi
-          ;;
-        *)
-          echo "ERROR: Argument #${arg_counter} of ${NUM_ARGS} unexpected: \"${i}\" in \"${ARGS[*]}\""
+      -h | --help)
+        print_help
+        end
+        ;;
+      -v | --version)
+        ${SEMVER_EXEC}
+        end
+        ;;
+      --env=?*)
+        local r_env=${i##*=}
+        if [[ "${r_env}" == "prod" || "${r_env}" == "dev" ]]; then
+          _env="${r_env}"
+        else
+          echo "ERROR: Unknown environment \"${r_env}\"."
           exit 1
-          ;;
+        fi
+        ;;
+      *)
+        echo "ERROR: Argument #${arg_counter} of ${NUM_ARGS} unexpected: \"${i}\" in \"${ARGS[*]}\""
+        exit 1
+        ;;
       esac
     done
   fi
@@ -259,11 +261,11 @@ ME="$(basename "$0")"
 # https://stackoverflow.com/a/246128
 SOURCE=${BASH_SOURCE[0]}
 while [[ -L "${SOURCE}" ]]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR=$( cd -P "$( dirname "${SOURCE}")"  > /dev/null 2>&1 && pwd)
+  DIR=$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)
   SOURCE=$(readlink "${SOURCE}")
   [[ ${SOURCE} != /* ]] && SOURCE=${DIR}/${SOURCE} # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DIR=$( cd -P "$( dirname "${SOURCE}")"  > /dev/null 2>&1 && pwd)
+DIR=$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)
 
 ROOT=$(realpath "${DIR}/../..")
 LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
@@ -278,7 +280,7 @@ log "== ${ME} Started =="
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env
