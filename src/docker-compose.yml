@@ -1,13 +1,15 @@
+---
 # SPDX-License-Identifier: MIT
 #
 # This docker-compose configures the production environment, as well as the development environment
 # used client-side to deploy and manage the horizon cluster.
 #
 # This should all be called/configured by calling top-level scripts. But in essence:
-# 
+#
 # installation:
 # to install docker compose in WSL, type the following commands on a WSL terminal:
-#  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+#  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o \
+#    /usr/local/bin/docker-compose
 #  - sudo chmod +x /usr/local/bin/docker-compose
 #
 # validate installation:
@@ -17,10 +19,7 @@
 # usage :
 #  - docker-compose build (will build all listed images)
 #  - docker-compose build <service_name> (will build a single image, without building its dependencies if any)
-
-
-version: "3"
-
+version: '3'
 services:
   # Base image for production
   prod_base:
@@ -28,7 +27,6 @@ services:
       context: ./client/docker/horizon-prod-base
     container_name: horizon-prod-base
     image: horizon-prod-base-image
-
   prod:
     build:
       context: ./client/docker/horizon-prod
@@ -41,15 +39,14 @@ services:
     environment:
       - IG_PORT=${IG_PORT}
     ports:
-      - "${SERVER_PORT}:${IG_PORT}"
+      - ${SERVER_PORT}:${IG_PORT}
     depends_on:
       - prod_base
-
   dev:
     build:
       context: ./dev
       args:
-        <<: *prod_args
+        !!merge <<: *prod_args
         DEV_USER: ${DEV_USER}
         DEV_GROUP: ${DEV_GROUP}
     container_name: horizon-dev

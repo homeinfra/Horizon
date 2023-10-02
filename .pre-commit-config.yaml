@@ -1,18 +1,30 @@
+---
 repos:
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.7.0-1  # Use the latest release of shfmt
     hooks:
       - id: shfmt
-        args: ["-i", "2", "-d"]
-
+        args: [-i, '2', -d]
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 3.0.0  # Use the latest release of pylama
+    rev: 3.0.0  # Use version 0.9.0 installed locally
     hooks:
       - id: shellcheck
-        args: ["--enable", "all", "-x"]
-
+        args: [--enable, all, -x]
   - repo: https://github.com/klen/pylama
     rev: 8.4.1  # Use the latest release of pylama
     hooks:
       - id: pylama
-        args: ["-o", ".pylama.ini"]
+        args: [-o, .pylama.ini]
+  - repo: https://github.com/AleksaC/hadolint-py
+    rev: v2.12.0.2  # Latest version from AleskaC
+    hooks:
+      - id: hadolint
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.32.0  # Latest version from adrien
+    hooks:
+      - id: yamllint
+        args: [--format, parsable, --strict]
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.10.0  # Latest version from Google
+    hooks:
+      - id: yamlfmt

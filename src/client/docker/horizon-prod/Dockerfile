@@ -1,8 +1,13 @@
-FROM horizon-prod-base-image
+FROM horizon-prod-base-image:${VER_VERSION}
 
 ARG SYS_GROUP
 ARG SYS_USER
 ARG BUTANE_URL
+ARG VER_VERSION
+
+LABEL version=${VER_VERSION}
+
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
 # Add user and group for executed processes in prod
 RUN addgroup ${SYS_GROUP} --system && \
@@ -12,20 +17,20 @@ RUN addgroup ${SYS_GROUP} --system && \
 # Added "python3-dev" to help install SOPS
 # Added "openssl-dev" and "zstd-dev" for coreos-installer
 RUN apk add --no-cache \
-  python3 \
-  py3-pip \
-  python3-dev \
-  samba-client \
-  cargo \
-  openssl-dev \
-  zstd-dev \
-  && pip3 install \
-  virtualenv \
-  python-dotenv \
-  sops \
-  age \
+  python3=3.11.5-r0 \
+  py3-pip=23.1.2-r0 \
+  python3-dev=3.11.5-r0 \
+  samba-client=4.18.5-r0 \
+  cargo=1.71.1-r0 \
+  openssl-dev=3.1.3-r0 \
+  zstd-dev=1.5.5-r4 \
+  && pip3 install --no-cache-dir \
+  virtualenv==20.24.5 \
+  python-dotenv==1.0.0 \
+  sops==1.18 \
+  age==0.5.1 \
   && cargo install \
-  coreos-installer
+  coreos-installer --version=0.18.0
 
 # This is where coreos-installer ends up
 ENV PATH="${PATH}:/root/.cargo/bin"

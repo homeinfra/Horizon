@@ -24,11 +24,14 @@ main() {
 build() {
   local _env="$1"
 
+  local ver
+  ver=$(${SEMVER_EXEC})
+
   logInfo "Building images..."
-  cd "${ROOT}/src" && docker-compose build "prod_base"
-  cd "${ROOT}/src" && docker-compose build "prod"
+  cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod_base"
+  cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod"
   if [[ "${_env}" == "dev" ]]; then
-    cd "${ROOT}/src" && docker-compose build "${_env}"
+    cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "${_env}"
   fi
   logInfo "Image built"
 }
