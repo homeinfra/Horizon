@@ -18,8 +18,20 @@ RUN addgroup ${DEV_GROUP} -g 1000 && \
   echo "${DEV_USER}:${DEV_USER}" | chpasswd && \
   sed -i 's/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL$/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
 
+# Added "ruby", "ruby-dev" and "build-base" as prerequisites for 'markdownlint'. The first must be kept for runtime
 RUN apk add --no-cache \
   git=2.40.1-r0 \
   shellcheck=0.9.0-r1 \
+  ruby=3.2.2-r0 \
+  build-base=0.5-r3 \
+  ruby-dev=3.2.2-r0 \
+  cargo=1.71.1-r0 \
   && pip3 install --no-cache-dir \
-  pre-commit==3.4.0
+  pre-commit==3.4.0 \
+  && cargo install \
+  dotenv-linter --version=3.3.0 \
+  && apk del \
+  ruby-dev \
+  build-base \
+  cargo \
+  && apk cache clean --purge

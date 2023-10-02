@@ -14,8 +14,8 @@ RUN addgroup ${SYS_GROUP} --system && \
   adduser ${SYS_USER} --system -u 10001 -G ${SYS_GROUP}
 # Previously the adduser had these extra options: --create-home -d /home/${SYS_USER} -s /bin/ash
 
-# Added "python3-dev" to help install SOPS
-# Added "openssl-dev" and "zstd-dev" for coreos-installer
+# Added "python3-dev" as prerequisites for SOPS
+# Added "openssl-dev" and "zstd-dev" as prerequisites for coreos-installer
 RUN apk add --no-cache \
   python3=3.11.5-r0 \
   py3-pip=23.1.2-r0 \
@@ -30,7 +30,13 @@ RUN apk add --no-cache \
   sops==1.18 \
   age==0.5.1 \
   && cargo install \
-  coreos-installer --version=0.18.0
+  coreos-installer --version=0.18.0 \
+  && apk del \
+  python3-dev \
+  openssl-dev \
+  zstd-dev \
+  cargo \
+  && apk cache clean --purge
 
 # This is where coreos-installer ends up
 ENV PATH="${PATH}:/root/.cargo/bin"
