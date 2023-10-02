@@ -26,7 +26,6 @@ RUN apk add --no-cache \
   shellcheck=0.9.0-r1 \
   build-base=0.5-r3 \
   ruby-dev=3.2.2-r0 \
-  cargo=1.71.1-r0 \
   && pip3 install --no-cache-dir \
   pre-commit==3.4.0 \
   && cargo install \
