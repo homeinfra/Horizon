@@ -33,9 +33,9 @@ RUN apk add --no-cache \
   && cargo install \
   coreos-installer --version=0.18.0 \
   && apk del \
+  python3-dev \
   openssl-dev \
   zstd-dev \
-  cargo \
   && apk cache clean --purge
 
 # This is where coreos-installer ends up

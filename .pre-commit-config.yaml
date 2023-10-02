@@ -60,3 +60,11 @@ repos:
     hooks:
       - id: pretty-format-ini
         args: [--autofix]
+  - repo: local
+    hooks:
+      - id: my-dotenv-linter
+        name: dotenv-linter
+        pass_filenames: true
+        language: fail
+        entry: dotenv-linter
+        files: '.*\.(env)'
