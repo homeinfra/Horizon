@@ -28,6 +28,8 @@ RUN apk add --no-cache \
   ruby-dev=3.2.2-r0 \
   && pip3 install --no-cache-dir \
   pre-commit==3.4.0 \
-  && cargo install \
+  && cargo install --root /usr/local/bin \
   dotenv-linter --version=3.3.0 \
+  && apk del \
+  cargo \
   && apk cache clean --purge

@@ -65,6 +65,6 @@ repos:
       - id: my-dotenv-linter
         name: dotenv-linter
         pass_filenames: true
-        language: fail
+        language: system
         entry: dotenv-linter
-        files: '.*\.(env)'
+        files: '^(.*\.env)$'

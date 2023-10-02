@@ -30,16 +30,14 @@ RUN apk add --no-cache \
   python-dotenv==1.0.0 \
   sops==1.18 \
   age==0.5.1 \
-  && cargo install \
+  && cargo install --root /usr/local/bin \
   coreos-installer --version=0.18.0 \
   && apk del \
   python3-dev \
   openssl-dev \
   zstd-dev \
+  cargo \
   && apk cache clean --purge
-
-# This is where coreos-installer ends up
-ENV PATH="${PATH}:/root/.cargo/bin"
 
 # Install butane
 RUN curl -Lo /usr/local/bin/butane ${BUTANE_URL} && \
