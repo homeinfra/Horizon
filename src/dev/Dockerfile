@@ -15,5 +15,6 @@ RUN addgroup ${DEV_GROUP} -g 1000 && \
 
 RUN apk add --no-cache \
   git \
+  shellcheck \
   && pip3 install \
   pre-commit

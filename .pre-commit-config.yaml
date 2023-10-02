@@ -1,26 +1,18 @@
 repos:
-  - repo: https://github.com/mvdan/sh
-    rev: v3.5.1  # Use the latest release of shfmt
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.7.0-1  # Use the latest release of shfmt
     hooks:
       - id: shfmt
         args: ["-i", "2", "-d"]
-        name: shfmt
-        entry: shfmt
-        language: system
-        types: [sh]
 
-  - repo: https://github.com/koalaman/shellcheck
-    rev: v0.8.0  # Use the latest release of shellcheck
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0  # Use the latest release of pylama
     hooks:
       - id: shellcheck
         args: ["--enable", "all", "-x"]
-        name: shellcheck
-        entry: shellcheck
-        language: system
-        types: [sh]
 
   - repo: https://github.com/klen/pylama
-    rev: v8.4.1  # Use the latest release of pylama
+    rev: 8.4.1  # Use the latest release of pylama
     hooks:
       - id: pylama
         args: ["-o", ".pylama.ini"]
