@@ -1,4 +1,5 @@
-FROM horizon-prod-base-image:${VER_VERSION}
+# hadolint ignore=DL3007
+FROM horizon-prod-base-image:latest
 
 ARG SYS_GROUP
 ARG SYS_USER
@@ -32,7 +33,6 @@ RUN apk add --no-cache \
   && cargo install \
   coreos-installer --version=0.18.0 \
   && apk del \
-  python3-dev \
   openssl-dev \
   zstd-dev \
   cargo \

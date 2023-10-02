@@ -27,7 +27,7 @@ build() {
   local ver
   ver=$(${SEMVER_EXEC})
 
-  logInfo "Building images..."
+  logInfo "Building images @ version: ${ver}..."
   cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod_base"
   cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod"
   if [[ "${_env}" == "dev" ]]; then

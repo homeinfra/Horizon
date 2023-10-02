@@ -1,4 +1,5 @@
-FROM horizon-prod-image:${VER_VERSION}
+# hadolint ignore=DL3007
+FROM horizon-prod-image:latest
 
 ARG SYS_GROUP
 ARG DEV_USER
@@ -31,7 +32,5 @@ RUN apk add --no-cache \
   && cargo install \
   dotenv-linter --version=3.3.0 \
   && apk del \
-  ruby-dev \
-  build-base \
   cargo \
   && apk cache clean --purge
