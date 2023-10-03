@@ -1,6 +1,8 @@
 # hadolint ignore=DL3007
 FROM horizon-prod-image:latest
 
+ARG LOCAL_BINDIR="/usr/local"
+
 ARG SYS_GROUP
 ARG DEV_USER
 ARG DEV_GROUP
@@ -29,7 +31,7 @@ RUN apk add --no-cache \
   cargo=1.71.1-r0 \
   && pip3 install --no-cache-dir \
   pre-commit==3.4.0 \
-  && cargo install --root /usr/local/bin \
+  && cargo install --root ${LOCAL_BINDIR} \
   dotenv-linter --version=3.3.0 \
   && apk del \
   cargo \

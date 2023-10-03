@@ -1,6 +1,8 @@
 # hadolint ignore=DL3007
 FROM horizon-prod-base-image:latest
 
+ARG LOCAL_BINDIR="/usr/local"
+
 ARG SYS_GROUP
 ARG SYS_USER
 ARG BUTANE_URL
@@ -30,7 +32,7 @@ RUN apk add --no-cache \
   python-dotenv==1.0.0 \
   sops==1.18 \
   age==0.5.1 \
-  && cargo install --root /usr/local/bin \
+  && cargo install --root ${LOCAL_BINDIR} \
   coreos-installer --version=0.18.0 \
   && apk del \
   python3-dev \
@@ -40,8 +42,8 @@ RUN apk add --no-cache \
   && apk cache clean --purge
 
 # Install butane
-RUN curl -Lo /usr/local/bin/butane ${BUTANE_URL} && \
-  chmod +x /usr/local/bin/butane
+RUN curl -Lo ${LOCAL_BINDIR}/bin/butane ${BUTANE_URL} && \
+  chmod +x ${LOCAL_BINDIR}/bin/butane
 
 # From docker-compose.yml
 EXPOSE ${IG_PORT}
