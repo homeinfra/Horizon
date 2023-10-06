@@ -16,22 +16,50 @@ function main {
     # Initialization and cleanup tasks
     Install-Dependencies
     Start-Logging
-    Reset-AutoExec
+    # Reset-AutoExec
+
+    # Test registerting of the scheduled task
+    # Set-AutoExec
+
+    Write-Host "If you press Enter the host will restart"
+    Read-Host
+
+    Restart-Host
+}
+
+function Restart-Host {
+
+    Write-Log -Level 'INFO' -Message "Performing a computer restart..."
+
+    # Do we need privileges for this?
+    Restart-Computer
 }
 
 function Set-AutoExec {
-    # Define the action to run your script on startup
-    $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
+    Assert-Admin "to create scheduled task '$AutoExecName'"
+    try {
+        # Define the action to run your script on startup
+        $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
 
-    # Define the trigger for the task (at startup)
-    $Trigger = New-ScheduledTaskTrigger -AtStartup
+        # Define the trigger for the task (at startup)
+        $Trigger = New-ScheduledTaskTrigger -AtLogOn
 
-    # Register the scheduled task
-    Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName $AutoExecName -User $env:USERNAME -Force
+        # Register the scheduled task
+        Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName $AutoExecName -User $env:USERNAME -Force
+    } catch {
+        Write-Log -Level 'ERROR'-Message "Failed to create '{0}'" -Arguments $AutoExecName
+        exit 1
+    }
 
-    Write-Host "Scheduled task '$TaskName' configured to run '$ScriptPath' on next startup."
-}
+    $existingTask = Get-ScheduledTask -TaskName $AutoExecName -ErrorAction SilentlyContinue
+    if ($existingTask) {
+        Write-Log -Level 'INFO' -Message "Scheduled task '{0}' created successfully" -Arguments $AutoExecName
+    } else {
+        Write-Log -Level 'ERROR' -Message "Scheduled task '{0}' could not be created" -Arguments $AutoExecName
+        exit 1
+    }
+}    
 
 # Remove the scheduled task we've created to run ourselves again after restart
 function Reset-AutoExec {
@@ -59,7 +87,7 @@ function Assert-Admin {
         [string]$taksName
     )
 
-    Write-Log -Level 'DEBUG' -Message "Administrative privileges are required {0}. Checking..." -Arguments $$taksName
+    Write-Log -Level 'DEBUG' -Message "Administrative privileges are required {0}. Checking..." -Arguments $taksName
     $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not ($currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
 
@@ -70,11 +98,11 @@ function Assert-Admin {
             "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`" $global:args" `
             -Verb RunAs
         } catch {
-            Write-Log -Level 'ERROR' -ExceptionInfo -Message "Elevation failed. Exiting in error..."
+            Write-Log -Level 'ERROR' -Message "Elevation failed. Exiting in error..."
             exit 1
         }
 
-        Write-Host "Elevation succeeded. Exiting..."
+        Write-Log -Level 'INFO' -Message "Elevation succeeded. Exiting..."
         exit 0
     }
     else {
@@ -125,11 +153,11 @@ function Start-Logging {
             PrintException  = $true 
             Append          = $true
             Encoding        = 'utf8'
-            Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-6}] %{message}"
+            Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-7}] %{message}"
         }
         
         Add-LoggingTarget -Name Console -Configuration @{
-            Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-6}] %{message}"
+            Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-7}] %{message}"
             PrintException  = $true
         }
     } catch {
