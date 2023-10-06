@@ -37,4 +37,33 @@ First worker node for my Horizon k8s cluster. Named in honor of [Alexis Bouvard]
 Second worker node for my Horizon k8s cluster. Named in honor of [Urbain Le Verrier](https://en.wikipedia.org/wiki/Urbain_Le_Verrier), french astonomer and mathematician who predicted the position of Neptune based on Alexis Bouvar's observations.
 
 ## TODOs
-	- [ ] Everything
+TODO For the current docker branch
+1. Installed the right version of SOPS in the container (currently have the old version 1 in python).
+2. Configure the dotenv-linter. Make it happy with the current .config/ files.
+3. Install xe-cli into the docker image.
+4. Make sure we are at the same stage as this spring.
+
+TODO For mid term
+5. Rename logger.sh into slf4sh.sh.
+6. Extract it and semver into libraries to be published on my github account. Look into shell package managers.
+7. Rework lib xapi-shell to remove MS Windows quirks. Streamline with new strategy of "out" function parameters.
+
+TODO For long term (Finally caught up? Proceed with next steps...)
+8. Get SSH key automatic generation working.
+9. Attempt a transition to terraform.
+10. Attempt a switch from FCOS to Talos. Apparently it even has terraform support.
+11. Deploy 2 k8s control nodes
+12. Deploy 2 k8s worker nodes
+13. Deploy CNI calico
+14. Configure geolocation configuration (multi-site storage constraints)
+15. Deploy CSI smb
+18. Deploy bluebook
+19. Deploy XOA
+20. Deploy Unify controller
+16. Deploy external ingress controller (Can publish DNS updates to Namecheap)
+17. Deploy internal ingress controller (Can configure Unboud on OPNsense)
+21. Look for a centralized logging solution (SYSLOG server? - try to have better than emails)
+21. Deploy Owncould (or similar - backup pictures on cellphones automatically)
+22. Deploy Jellyfin
+23. Deploy Arrrr
+24. Deploy Home Assistant
