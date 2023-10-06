@@ -19,6 +19,20 @@ function main {
     Reset-AutoExec
 }
 
+function Set-AutoExec {
+    # Define the action to run your script on startup
+    $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
+
+    # Define the trigger for the task (at startup)
+    $Trigger = New-ScheduledTaskTrigger -AtStartup
+
+    # Register the scheduled task
+    Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName $AutoExecName -User $env:USERNAME -Force
+
+    Write-Host "Scheduled task '$TaskName' configured to run '$ScriptPath' on next startup."
+}
+
 # Remove the scheduled task we've created to run ourselves again after restart
 function Reset-AutoExec {
     # Check if the scheduled task already exists
