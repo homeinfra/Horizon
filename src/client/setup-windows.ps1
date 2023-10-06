@@ -21,9 +21,6 @@ function main {
     # Test registerting of the scheduled task
     Set-AutoExec
 
-    Write-Host "If you press Enter the host will restart"
-    Read-Host
-
     Restart-Host
 }
 
@@ -34,18 +31,18 @@ function Restart-Host {
     Add-Type -AssemblyName PresentationCore,PresentationFramework
     $ButtonType = [System.Windows.MessageBoxButton]::YesNo
     $MessageIcon = [System.Windows.MessageBoxImage]::Question
-    $MessageBody = "Is it OK to restart the computer now?" `
-                + " Regardless of your answer, this script will resume on next logon"
+    # Create a TextBlock with line breaks
+    $MessageBody = "Is it OK to restart the computer now?" + [Environment]::NewLine + [Environment]::NewLine `
+                 + "Regardless of your answer, this script will resume on the next logon to finish the configuration." `
+                 + " If you answer 'No', simply restart your computer manually when you are ready to proceed with " `
+                 + "the next configuration steps."
     $MessageTitle = "Restart confirmation"
     $Result = [System.Windows.MessageBox]::Show($MessageBody,$MessageTitle,$ButtonType,$MessageIcon)
 
     if ($Result -eq [System.Windows.MessageBoxResult]::Yes) {
         Write-Log -Level 'INFO' -Message "User said it's ok to restart"
     } else {
-        Write-Log -Level 'ERROR' -Message "User refused the restart"
-        Write-Host "ERROR: Restart required. " `
-        + "Please restart your computer manually. This script will automatically resume after restart"
-        
+        Write-Log -Level 'ERROR' -Message "User refused the restart. Exiting..."
         exit 1
     }
 
