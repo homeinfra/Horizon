@@ -144,13 +144,17 @@ log() {
   local full=0
   date=$(date +%F)
   time=$(date +%H:%M:%S)
+  if [[ -z "$2" ]]; then
+    $2 = $1
+    $1 = "      "
+  fi
   full="${date} ${time}"
   # Misleading on first sight. Remember that anything sent to stdout is also captured to file.
   # The 'else' condition is to avoid writing twice to file
   if [[ "${LOG_CONSOLE}" == 1 ]]; then
-    echo -e "${full} $1$2"
+    echo -e "${full} [$1] $2"
   else
-    echo -e "${full} $1$2" >>"${LOGFILE}"
+    echo -e "${full} [$1] $2" >>"${LOGFILE}"
   fi
 }
 
