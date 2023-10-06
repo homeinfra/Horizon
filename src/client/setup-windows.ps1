@@ -28,8 +28,26 @@ function main {
 }
 
 function Restart-Host {
+    # This function does NOT require privilege elevation
+    Write-Log -Level 'INFO' -Message "Ask user if it's ok to restart the computer"
 
-    Write-Log -Level 'INFO' -Message "Performing a computer restart..."
+    Add-Type -AssemblyName PresentationCore,PresentationFramework
+    $ButtonType = [System.Windows.MessageBoxButton]::YesNo
+    $MessageIcon = [System.Windows.MessageBoxImage]::Question
+    $MessageBody = "Is it OK to restart the computer now?" `
+                + " Regardless of your answer, this script will resume on next logon"
+    $MessageTitle = "Restart confirmation"
+    $Result = [System.Windows.MessageBox]::Show($MessageBody,$MessageTitle,$ButtonType,$MessageIcon)
+
+    if ($Result -eq [System.Windows.MessageBoxResult]::Yes) {
+        Write-Log -Level 'INFO' -Message "User said it's ok to restart"
+    } else {
+        Write-Log -Level 'ERROR' -Message "User refused the restart"
+        Write-Host "ERROR: Restart required. " `
+        + "Please restart your computer manually. This script will automatically resume after restart"
+        
+        exit 1
+    }
 
     # Do we need privileges for this?
     Restart-Computer
@@ -39,28 +57,28 @@ function Set-AutoExec {
     # Check if the scheduled task already exists
     $existingTask = Get-ScheduledTask -TaskName $AutoExecName -ErrorAction SilentlyContinue
     if (-not $existingTask) {
-    Assert-Admin "to create scheduled task '$AutoExecName'"
-    try {
-        # Define the action to run your script on startup
-        $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
+        Assert-Admin "to create scheduled task '$AutoExecName'"
+        try {
+            # Define the action to run your script on startup
+            $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
+            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
 
-        # Define the trigger for the task (at startup)
-        $Trigger = New-ScheduledTaskTrigger -AtLogOn
+            # Define the trigger for the task (at startup)
+            $Trigger = New-ScheduledTaskTrigger -AtLogOn
 
-        # Register the scheduled task
-        Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName $AutoExecName -User $env:USERNAME -Force
-    } catch {
-        Write-Log -Level 'ERROR'-Message "Failed to create '{0}'" -Arguments $AutoExecName
-        exit 1
-    }
+            # Register the scheduled task
+            Register-ScheduledTask -Action $Action -Trigger $Trigger -TaskName $AutoExecName -User $env:USERNAME -Force
+        } catch {
+            Write-Log -Level 'ERROR'-Message "Failed to create '{0}'" -Arguments $AutoExecName
+            exit 1
+        }
 
-    $existingTask = Get-ScheduledTask -TaskName $AutoExecName -ErrorAction SilentlyContinue
-    if ($existingTask) {
-        Write-Log -Level 'INFO' -Message "Scheduled task '{0}' created successfully" -Arguments $AutoExecName
-    } else {
-        Write-Log -Level 'ERROR' -Message "Scheduled task '{0}' could not be created" -Arguments $AutoExecName
-        exit 1
+        $existingTask = Get-ScheduledTask -TaskName $AutoExecName -ErrorAction SilentlyContinue
+        if ($existingTask) {
+            Write-Log -Level 'INFO' -Message "Scheduled task '{0}' created successfully" -Arguments $AutoExecName
+        } else {
+            Write-Log -Level 'ERROR' -Message "Scheduled task '{0}' could not be created" -Arguments $AutoExecName
+            exit 1
         }
     } else {
         Write-Log -Level 'INFO' -Message "Scheduled task '{0}' already exists" -Arguments $AutoExecName
