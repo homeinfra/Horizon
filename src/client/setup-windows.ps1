@@ -19,7 +19,7 @@ function main {
     # Reset-AutoExec
 
     # Test registerting of the scheduled task
-    # Set-AutoExec
+    Set-AutoExec
 
     Write-Host "If you press Enter the host will restart"
     Read-Host
@@ -36,6 +36,9 @@ function Restart-Host {
 }
 
 function Set-AutoExec {
+    # Check if the scheduled task already exists
+    $existingTask = Get-ScheduledTask -TaskName $AutoExecName -ErrorAction SilentlyContinue
+    if (-not $existingTask) {
     Assert-Admin "to create scheduled task '$AutoExecName'"
     try {
         # Define the action to run your script on startup
@@ -58,6 +61,9 @@ function Set-AutoExec {
     } else {
         Write-Log -Level 'ERROR' -Message "Scheduled task '{0}' could not be created" -Arguments $AutoExecName
         exit 1
+        }
+    } else {
+        Write-Log -Level 'INFO' -Message "Scheduled task '{0}' already exists" -Arguments $AutoExecName
     }
 }    
 
