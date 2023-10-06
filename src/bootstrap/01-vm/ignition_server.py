@@ -77,7 +77,7 @@ class LoggerConfig: #noqa
     self.__console = logging.StreamHandler()
     self.__file = logging.FileHandler(filename=self.__filename, encoding='utf-8', mode='a+')
     logging.basicConfig(handlers=[self.__console, self.__file], level=logging.NOTSET,
-                        datefmt="%F %H:%M:%S", format="%(asctime)s [%(levelname)-6s] %(message)s")
+                        datefmt="%F %H:%M:%S", format="%(asctime)s [%(levelname)-7s] %(message)s")
 
     # Levels as defined by logger-shell
   def _set_level(self, level):

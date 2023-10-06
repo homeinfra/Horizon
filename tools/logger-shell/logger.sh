@@ -77,7 +77,7 @@ logIsLevelEnabled() {
 # @params[in] $1: Message to be logged
 logFatal() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_FATAL} ]]; then
-    log "FATAL " "$1"
+    log "FATAL  " "$1"
   fi
   exit 1
 }
@@ -87,7 +87,7 @@ logFatal() {
 # @params[in] $1: Message to be logged
 logError() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_ERROR} ]]; then
-    log "ERROR " "$1"
+    log "ERROR  " "$1"
   fi
 }
 
@@ -96,7 +96,7 @@ logError() {
 # @params[in] $1: Message to be logged
 logWarn() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_WARN} ]]; then
-    log "WARN  " "$1"
+    log "WARNING" "$1"
   fi
 }
 
@@ -105,7 +105,7 @@ logWarn() {
 # @params[in] $1: Message to be logged
 logInfo() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_INFO} ]]; then
-    log "INFO  " "$1"
+    log "INFO   " "$1"
   fi
 }
 
@@ -114,7 +114,7 @@ logInfo() {
 # @params[in] $1: Message to be logged
 logDebug() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_DEBUG} ]]; then
-    log "DEBUG " "$1"
+    log "DEBUG  " "$1"
   fi
 }
 
@@ -123,7 +123,7 @@ logDebug() {
 # @params[in] $1: Message to be logged
 logTrace() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_TRACE} ]]; then
-    log "TRACE " "$1"
+    log "TRACE  " "$1"
   fi
 }
 
@@ -132,7 +132,7 @@ logTrace() {
 # @params[in] $1: Message to be logged
 logTest() {
   if [[ "${LOG_LEVEL}" -le ${LEVEL_TEST} ]]; then
-    log "TEST  " "$1"
+    log "TEST   " "$1"
   fi
 }
 
@@ -146,7 +146,7 @@ log() {
   time=$(date +%H:%M:%S)
   if [[ -z "$2" ]]; then
     $2 = $1
-    $1 = "      "
+    $1 = "       "
   fi
   full="${date} ${time}"
   # Misleading on first sight. Remember that anything sent to stdout is also captured to file.
