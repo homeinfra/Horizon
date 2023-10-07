@@ -81,17 +81,17 @@ function Install-Docker {
     $packageName = "Docker.DockerDesktop"
     $doINeedToRestart = $false
 
-    $packageExists = (winget list) -match "$packageName"
+    $packageExists = (winget list --accept-package-agreements --accept-source-agreements) -match "$packageName"
     if ($false -eq $packageExists) {
         Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
-        
+
         # Raise privileges immediately. They will be needed anyway during install and we don't want
         # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
         Assert-Admin
 
-        winget install -e --id $packageName
+        winget install --accept-package-agreements --accept-source-agreements -e --id $packageName
 
-        $packageExists = (winget list) -match "$packageName"
+        $packageExists = (winget list --accept-package-agreements --accept-source-agreements) -match "$packageName"
         if ($false -eq $packageExists) {
             Write-Log -Level 'ERROR' -Message "{0} failed to install" -Arguments $packageName
             exit 1
@@ -125,13 +125,17 @@ function Wait-User {
     $noUser = "root"
 
     while ($true) {
-        $global:wslUser = Invoke-WslCommand -Name $distroName -Command "whoami"
+        try {
+          $global:wslUser = Invoke-WslCommand -Name $distroName -Command "whoami"
+        } catch {
+          Write-Log -Level 'WARNING' -Message "Failure to check for user account on {0}" -Arguments $distroName
+        }
         Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments $distroName
 
         if ($global:wslUser -ne $noUser) {
             break
         }
-        
+
         Start-Sleep -Seconds 1  # Sleep for 1 second before the next iteration
     }
 
@@ -158,14 +162,14 @@ function Install-WSLDistro {
             if ($null -ne $WslDistribution) {
                 $state = $WslDistribution.State
                 Write-Log -Level 'DEBUG' -Message "{0} is in state {1}" -Arguments $distroName, $state
-                
+
                 # Check if the state is "Stopped" or "Running"
                 if ($state -eq "Stopped" -or $state -eq "Running") {
                     Write-Log -Level 'INFO' -Message "We are done waiting for {0} to be ready" -Arguments $distroName
                     break
                 }
             }
-            
+
             # Increment the retry count and wait for the specified interval
             $currentRetry++
             Start-Sleep -Seconds $retryInterval
@@ -223,10 +227,10 @@ function Install-WSL2 {
             Write-Log -Level 'WARNING' -Message "WSL is not installed or not running."
         } else {
             Write-Log -Level 'INFO' -Message "WSL is already installed and running."
-            
+
             # Set WSL 2 as the default version
             wsl --set-default-version 2
-            
+
             return
         }
     } catch {
@@ -339,7 +343,7 @@ function Set-AutoExec {
     } else {
         Write-Log -Level 'INFO' -Message "Scheduled task '{0}' already exists" -Arguments $AutoExecName
     }
-}    
+}
 
 # Remove the scheduled task we've created to run ourselves again after restart
 function Reset-AutoExec {
@@ -432,12 +436,12 @@ function Start-Logging {
         Add-LoggingTarget -Name File -Configuration @{
             Path            = "$logDirectory\$filename"
             PrintBody       = $true
-            PrintException  = $true 
+            PrintException  = $true
             Append          = $true
             Encoding        = 'utf8'
             Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-7}] %{message}"
         }
-        
+
         Add-LoggingTarget -Name Console -Configuration @{
             Format          = "%{timestamp:+yyyy-MM-dd HH:mm:ss} [%{level:-7}] %{message}"
             PrintException  = $true
