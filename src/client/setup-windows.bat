@@ -9,7 +9,7 @@
 setlocal enabledelayedexpansion
 
 :: This is the file to download to setup the development environment up to a repo checked out in WSL
-set scriptUrl="https://github.com/homeinfra/Horizon/blob/feature/docker/src/client/setup-windows.ps1"
+set scriptUrl="https://raw.githubusercontent.com/homeinfra/Horizon/feature/docker/src/client/setup-windows.ps1"
 
 :: This is the filename
 for %%i in (%scriptURL%) do set "scriptName=%%~nxi"
