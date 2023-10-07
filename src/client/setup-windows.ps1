@@ -125,17 +125,17 @@ function Wait-User {
     $noUser = "root"
 
     while ($true) {
-        $global:user = Invoke-WslCommand -Name $distroName -Command "whoami"
+        $global:wslUser = Invoke-WslCommand -Name $distroName -Command "whoami"
         Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments $distroName
 
-        if ($global:user -ne $noUser) {
+        if ($global:wslUser -ne $noUser) {
             break
         }
         
         Start-Sleep -Seconds 1  # Sleep for 1 second before the next iteration
     }
 
-    Write-Log -Level 'INFO' -Message "User '{0}' has been found" -Arguments $global:user
+    Write-Log -Level 'INFO' -Message "User '{0}' has been found" -Arguments $global:wslUser
 }
 
 function Install-WSLDistro {
@@ -454,20 +454,34 @@ function Start-Logging {
     Write-Log -Level 'INFO' -Message "Logging is configured and started"
 }
 
-# Constants
-$ROOT = Get-Item -Path $(Join-Path -Path $PSScriptRoot -ChildPath "..\..")
+#############
+# Constants #
+#############
 $AutoExecName = "setup_windows"
 $distroName = "Ubuntu-22.04"
-$user = $null
+$wslUser = $null
 $repoDir = "Horizon"
 $repoUrl = "https://github.com/homeinfra/Horizon.git"
 $repoBranch = "main"
 
-# Entry point
+##################
+# Determine ROOT #
+##################
+$ROOT = Get-Item -Path $(Join-Path -Path $PSScriptRoot -ChildPath "..\..")
+# If we do NOT find a .gitignore file, we assume the file is alone.
+# This is not the full git repository (exported or not). Set ROOT at our level instead.
+if (-Not (Test-Path "$ROOT\.gitignore")) {
+    $ROOT = $PSScriptRoot
+}
+
+###############
+# Entry Point #
+###############
 main
 
-# Helps development, do not close the window immediately.
 Write-Log -Level 'INFO' -Message "Script execution has completed succesfully"
 Wait-Logging
+
+# Helps development, do not close the window immediately.
 Write-Host "Press Enter to exit.."
 Read-Host

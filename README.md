@@ -1,6 +1,10 @@
 # Horizon
 This repository describes in a GitOps fashion the setup of my kuberetes cluster named Horizon (in homage to the [Event Horizon Telescope (EHT)](https://en.wikipedia.org/wiki/Event_Horizon_Telescope)).
 
+## Quick Start
+To get setup locally as a client and control Horizon, simply download [this file](src/client/setup-windows.bat) in a folder to use a a work directory and execute it.
+This will set you up with WSL, Ubuntu and a copy of this repository in your home direcotry.
+
 ## About this repo
 
 Everything starts with the execution of [all.sh](all.sh) at the root.
