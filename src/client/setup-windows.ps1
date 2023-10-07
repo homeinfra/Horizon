@@ -26,8 +26,51 @@ function main {
     # Install Docker
     Install-Docker
 
+    # Checkout repo
+    Get-Repo
+
     # Cleanup tasks (If we reach here, we have done everything we watned succesfully)
     Reset-AutoExec
+}
+
+function Get-Repo {
+    $homeDir = Invoke-WslCommand -Name $distroName -Command "cd ~ && pwd"
+    $repos = "$homeDir/repos"
+    $repo = "$repos/$repoDir"
+
+    # Make sure the full path exists
+    Invoke-WslCommand -Name "$distroName" -WorkingDirectory "$homeDir" -Command "mkdir -p $repo"
+
+    # Check if the repo already exists
+    $isGit = ""
+    try {
+        $isGit = Invoke-WslCommand -Name "$distroName"  -WorkingDirectory "$repo" `
+                -Command "git rev-parse --is-inside-work-tree"
+    } catch {
+        $isGit = "false"
+    }
+    if ("true" -eq $isGit) {
+        Write-Log -Level 'DEBUG' -Message "Repository {0} is already cloned" -Arguments $repoDir
+    } else {
+        # Not found, we must clone...
+        Write-Log -Level 'INFO' -Message "Cloning repository {0}..." -Arguments $repoDir
+        Invoke-WslCommand -Name "$distroName" -WorkingDirectory "$repo" `
+                -Command "git clone $repoUrl --branch $repoBranch ."
+
+        # Check again if we have a repo this time
+        try {
+            $isGit = Invoke-WslCommand -Name "$distroName"  -WorkingDirectory "$repo" `
+                    -Command "git rev-parse --is-inside-work-tree"
+        } catch {
+            $isGit = "false"
+        }
+        if ("true" -eq $isGit) {
+            Write-Log -Level 'INFO' -Message "Repository {0} was cloned succesfully" -Arguments $repoDir
+        } else {
+            Write-Log -Level 'ERROR' -Message "Failed to clone repository" -Arguments $repoDir
+            exit 1
+        }
+    }
 }
 
 function Reset-Path {
@@ -416,7 +459,9 @@ $ROOT = Get-Item -Path $(Join-Path -Path $PSScriptRoot -ChildPath "..\..")
 $AutoExecName = "setup_windows"
 $distroName = "Ubuntu-22.04"
 $user = $null
+$repoDir = "Horizon"
 $repoUrl = "https://github.com/homeinfra/Horizon.git"
+$repoBranch = "main"
 
 # Entry point
 main
