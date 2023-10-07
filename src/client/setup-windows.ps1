@@ -14,26 +14,168 @@
 
 function main {
     # Initialization
-    Install-Dependencies
+    Install-Dependencies -moduleName 'Logging'
+    Install-Dependencies -moduleName 'Wsl'
     Start-Logging
 
+    # Install WSL
     Install-WSL2
+    Install-WSLDistro
+    Wait-User
 
-    # Test registerting of the scheduled task
-    # Set-AutoExec
-
-    # Restart-Host
+    # Install Docker
+    Install-Docker
 
     # Cleanup tasks (If we reach here, we have done everything we watned succesfully)
     Reset-AutoExec
+}
+
+function Reset-Path {
+    [Environment]::SetEnvironmentVariable("PATH", [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine), [System.EnvironmentVariableTarget]::Process)
+}
+
+function Install-Docker {
+    $packageName = "Docker.DockerDesktop"
+    $doINeedToRestart = $false
+
+    $packageExists = (winget list) -match "$packageName"
+    if ($false -eq $packageExists) {
+        Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
+        
+        # Raise privileges immediately. They will be needed anyway during install and we don't want
+        # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
+        Assert-Admin
+
+        winget install -e --id $packageName
+
+        $packageExists = (winget list) -match "$packageName"
+        if ($false -eq $packageExists) {
+            Write-Log -Level 'ERROR' -Message "{0} failed to install" -Arguments $packageName
+            exit 1
+        } else {
+            $doINeedToRestart = $true
+            Write-Log -Level 'INFO' -Message "{0} installed successfully" -Arguments $packageName
+        }
+    } else {
+        Write-Log -Level 'DEBUG' -Message "{0} is already installed" -Arguments $packageName
+    }
+
+    # The PATH will have changed on the OS
+    Reset-Path
+
+    try {
+        docker --version
+    } catch {
+        Write-Log -Level 'ERROR' -Message "There is a problem with the installation of docker"
+        exit 1
+    }
+
+    # Handle the request restart
+    if ($true -eq $doINeedToRestart) {
+        Write-Log -Level 'INFO' -Message "Docker is now installed. A restart is required"
+        Set-AutoExec
+        Restart-Host
+    }
+}
+
+function Wait-User {
+    $noUser = "root"
+
+    while ($true) {
+        $global:user = Invoke-WslCommand -Name $distroName -Command "whoami"
+        Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments $distroName
+
+        if ($global:user -ne $noUser) {
+            break
+        }
+        
+        Start-Sleep -Seconds 1  # Sleep for 1 second before the next iteration
+    }
+
+    Write-Log -Level 'INFO' -Message "User '{0}' has been found" -Arguments $global:user
+}
+
+function Install-WSLDistro {
+    # Check if the distribution is already installed
+    $WslDistribution = Get-WslDistribution $distroName
+    if (-not $WslDistribution) {
+        Write-Log -Level 'INFO' -Message "{0} is not installed. Installing..." -Arguments $distroName
+        wsl --install -d $distroName
+        Start-Sleep -Seconds 5
+
+        Write-Log -Level 'INFO' -Message "Waiting for {0} to be ready" -Arguments $distroName
+
+        # Wait for WSL to be installed
+        $maxRetries = 300
+        $retryInterval = 5
+        $currentRetry = 0
+
+        while ($currentRetry -lt $maxRetries) {
+            $WslDistribution = Get-WslDistribution $distroName
+            if ($null -ne $WslDistribution) {
+                $state = $WslDistribution.State
+                Write-Log -Level 'DEBUG' -Message "{0} is in state {1}" -Arguments $distroName, $state
+                
+                # Check if the state is "Stopped" or "Running"
+                if ($state -eq "Stopped" -or $state -eq "Running") {
+                    Write-Log -Level 'INFO' -Message "We are done waiting for {0} to be ready" -Arguments $distroName
+                    break
+                }
+            }
+            
+            # Increment the retry count and wait for the specified interval
+            $currentRetry++
+            Start-Sleep -Seconds $retryInterval
+        }
+
+        $WslDistribution = Get-WslDistribution $distroName
+        if ($null -eq $WslDistribution) {
+            Write-Log -Level 'ERROR' -Message "Failed to install {0}" -Arguments $distroName
+            exit 1
+        }
+    } else {
+        Write-Log -Level 'DEBUG' -Message "{0} is installed" -Arguments $distroName
+    }
+
+    # Check if it's runnnig WSL 2
+    if ($WslDistribution.Version -ne 2) {
+        Write-Log -Level 'WARNING' -Message "{0} is running WSL version {1}. Attempting an upgrade..." `
+        -Arguments $distroName, $WslDistribution.Version
+
+        Set-WslDistribution $distroName -Version 2
+
+        $WslDistribution = Get-WslDistribution $distroName
+        if ($WslDistribution.Version -ne 2) {
+            Write-Log -Level 'ERROR' -Message "Failed to upgrade {0}" -Arguments $distroName
+            exit 1
+        }
+    } else {
+        Write-Log -Level 'DEBUG' -Message "{0} is running WSL version {1}" `
+        -Arguments $distroName, $WslDistribution.Version
+    }
+
+    # Check if Default
+    if ($true -ne $WslDistribution.Default) {
+        Write-Log -Level 'WARNING' -Message "{0} is NOT the default distro. Attemptiong to change that..." `
+        -Arguments $distroName
+
+        Set-WslDistribution $distroName -Default
+
+        $WslDistribution = Get-WslDistribution $distroName
+        if ($true -ne $WslDistribution.Default) {
+            Write-Log -Level 'ERROR' -Message "Failed to set {0} as default." -Arguments $distroName
+            exit 1
+        }
+    } else {
+        Write-Log -Level 'DEBUG' -Message "{0} is the default distro" -Arguments $distroName
+    }
 }
 
 function Install-WSL2 {
     Write-Log -Level 'INFO' -Message "Check for WSL..."
 
     try {
-        # wsl --list --quiet 2>&1
-        $wslStatus = wsl --status
+        $wslStatus = wsl --status --quiet 2>&1
         if ($null -eq $wslStatus) {
             Write-Log -Level 'WARNING' -Message "WSL is not installed or not running."
         } else {
@@ -96,9 +238,6 @@ function Install-WSL2 {
     } else {
         Write-Log -Level 'INFO' -Message "WSL is now installed. Restart is NOT required"
     }
-
-    Write-Host "Press Enter to continue.."
-    Read-Host
 }
 
 function Restart-Host {
@@ -209,7 +348,9 @@ function Assert-Admin {
 }
 
 function Install-Dependencies {
-    $moduleName = 'Logging'
+    param (
+        [string]$moduleName
+    )
 
     # Check if the Log4Posh module is installed
     $moduleInstalled = Get-Module -ListAvailable | Where-Object { $_.Name -eq $moduleName }
@@ -273,6 +414,9 @@ function Start-Logging {
 # Constants
 $ROOT = Get-Item -Path $(Join-Path -Path $PSScriptRoot -ChildPath "..\..")
 $AutoExecName = "setup_windows"
+$distroName = "Ubuntu-22.04"
+$user = $null
+$repoUrl = "https://github.com/homeinfra/Horizon.git"
 
 # Entry point
 main
