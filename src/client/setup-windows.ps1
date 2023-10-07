@@ -13,15 +13,92 @@
 # NOTE: Designed to run on a fresh Windows 10 install or later
 
 function main {
-    # Initialization and cleanup tasks
+    # Initialization
     Install-Dependencies
     Start-Logging
-    # Reset-AutoExec
+
+    Install-WSL2
 
     # Test registerting of the scheduled task
-    Set-AutoExec
+    # Set-AutoExec
 
-    Restart-Host
+    # Restart-Host
+
+    # Cleanup tasks (If we reach here, we have done everything we watned succesfully)
+    Reset-AutoExec
+}
+
+function Install-WSL2 {
+    Write-Log -Level 'INFO' -Message "Check for WSL..."
+
+    try {
+        # wsl --list --quiet 2>&1
+        $wslStatus = wsl --status
+        if ($null -eq $wslStatus) {
+            Write-Log -Level 'WARNING' -Message "WSL is not installed or not running."
+        } else {
+            Write-Log -Level 'INFO' -Message "WSL is already installed and running."
+            
+            # Set WSL 2 as the default version
+            wsl --set-default-version 2
+            
+            return
+        }
+    } catch {
+        Write-Log -Level 'ERROR' -Message "Failure to check for WSL status."
+        exit 1
+    }
+
+    Assert-Admin "to change windows optional features"
+
+    $doINeedToRestart = $false
+
+    # Check for depedency
+    $status = Get-WindowsOptionalFeature -Online | Where-Object FeatureName -eq "VirtualMachinePlatform"
+    if ($status.State -eq "Enabled") {
+        Write-Log -Level 'INFO' -Message "VirtualMachinePlatform is installed."
+    } else {
+        Write-Log -Level 'WARNING' -Message "Virtual Machine Platform is NOT installed."
+
+        $ProgPref = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        $results = Enable-WindowsOptionalFeature -FeatureName VirtualMachinePlatform `
+                    -Online -NoRestart -WarningAction SilentlyContinue
+        $ProgressPreference = $ProgPref
+        if ($results.RestartNeeded -eq $true) {
+            Write-Log -Level 'INFO' -Message "VirtualMachinePlatform requests a restart."
+            $doINeedToRestart = $true
+        }
+    }
+
+    $status = Get-WindowsOptionalFeature -Online | Where-Object FeatureName -eq "Microsoft-Windows-Subsystem-Linux"
+    if ($status.State -eq "Enabled") {
+        Write-Log -Level 'INFO' -Message "Microsoft-Windows-Subsystem-Linux is installed."
+    } else {
+        Write-Log -Level 'WARNING' -Message "Microsoft-Windows-Subsystem-Linux is NOT installed."
+
+        $ProgPref = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        $results = Enable-WindowsOptionalFeature -FeatureName Microsoft-Windows-Subsystem-Linux `
+                    -Online -NoRestart -WarningAction SilentlyContinue
+        $ProgressPreference = $ProgPref
+        if ($results.RestartNeeded -eq $true) {
+            Write-Log -Level 'INFO' -Message "Microsoft-Windows-Subsystem-Linux requests a restart."
+            $doINeedToRestart = $true
+        }
+    }
+
+    # Handle the request restart
+    if ($true -eq $doINeedToRestart) {
+        Write-Log -Level 'INFO' -Message "WSL is now installed. Restart is required"
+        Set-AutoExec
+        Restart-Host
+    } else {
+        Write-Log -Level 'INFO' -Message "WSL is now installed. Restart is NOT required"
+    }
+
+    Write-Host "Press Enter to continue.."
+    Read-Host
 }
 
 function Restart-Host {
@@ -47,7 +124,7 @@ function Restart-Host {
     }
 
     # Do we need privileges for this?
-    Restart-Computer
+    Restart-Computer -Force
 }
 
 function Set-AutoExec {
