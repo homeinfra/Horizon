@@ -87,7 +87,7 @@ function Install-Docker {
 
         # Raise privileges immediately. They will be needed anyway during install and we don't want
         # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
-        Assert-Admin
+        Assert-Admin "to install Docker"
 
         winget install --accept-package-agreements --accept-source-agreements -e --id $packageName
 
@@ -128,6 +128,7 @@ function Wait-User {
         try {
           $global:wslUser = Invoke-WslCommand -Name $distroName -Command "whoami"
         } catch {
+          $global:wslUser = $noUser
           Write-Log -Level 'WARNING' -Message "Failure to check for user account on {0}" -Arguments $distroName
         }
         Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments $distroName
