@@ -81,7 +81,7 @@ function Install-Docker {
     $packageName = "Docker.DockerDesktop"
     $doINeedToRestart = $false
 
-    $packageExists = (winget list --accept-package-agreements --accept-source-agreements) -match "$packageName"
+    $packageExists = (winget list --accept-source-agreements) -match "$packageName"
     if ($false -eq $packageExists) {
         Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
 
@@ -89,9 +89,9 @@ function Install-Docker {
         # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
         Assert-Admin "to install Docker"
 
-        winget install --accept-package-agreements --accept-source-agreements -e --id $packageName
+        winget install --accept-package-agreements --accept-source-agreements -e --id $packageName --Silent
 
-        $packageExists = (winget list --accept-package-agreements --accept-source-agreements) -match "$packageName"
+        $packageExists = (winget list --accept-source-agreements) -match "$packageName"
         if ($false -eq $packageExists) {
             Write-Log -Level 'ERROR' -Message "{0} failed to install" -Arguments $packageName
             exit 1
@@ -395,6 +395,20 @@ function Assert-Admin {
     }
 }
 
+function Install-NuGetProvider {
+    # Check if NuGet provider is installed
+    $providerInstalled = Get-PackageSource | Where-Object { $_.Name -eq 'nuget.org' }
+
+    if ($null -eq $providerInstalled) {
+        Write-Host "NuGet provider is not installed. Installing..."
+        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+        Write-Host "NuGet provider installed successfully."
+    } else {
+        Write-Host "NuGet provider is already installed."
+    }
+}
+
+
 function Install-Dependencies {
     param (
         [string]$moduleName
@@ -404,6 +418,9 @@ function Install-Dependencies {
     $moduleInstalled = Get-Module -ListAvailable | Where-Object { $_.Name -eq $moduleName }
 
     if ($null -eq $moduleInstalled) {
+        # First, we will need NuGet
+        Install-NuGetProvider
+
         Write-Host "$moduleName module is not installed. Installing..."
 
         # Install the Log4Posh module from the OttoMatt repository
