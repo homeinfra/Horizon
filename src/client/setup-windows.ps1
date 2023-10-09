@@ -18,6 +18,9 @@ function main {
     Install-Dependencies -moduleName 'Wsl'
     Start-Logging
 
+    Write-Host "Waiting for user to press Enter"
+    Read-Host
+
     # Install WSL
     Install-WSL2
     Install-WSLDistro
@@ -397,17 +400,23 @@ function Assert-Admin {
 
 function Install-NuGetProvider {
     # Check if NuGet provider is installed
-    $providerInstalled = Get-PackageSource | Where-Object { $_.Name -eq 'nuget.org' }
+    $providerInstalled = Get-PackageProvider | Where-Object { $_.Name -eq 'NuGet' }
 
     if ($null -eq $providerInstalled) {
         Write-Host "NuGet provider is not installed. Installing..."
         Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
-        Write-Host "NuGet provider installed successfully."
+        Write-Host "Check if NuGet is property installed..."
+        $providerInstalled = Get-PackageProvider | Where-Object { $_.Name -eq 'NuGet' }
+        if ($null -eq $providerInstalled) {
+            Write-Host "NuGet provider failed to install."
+            exit 1
+        } else {
+            Write-Host "NuGet provider installed successfully."
+        }
     } else {
         Write-Host "NuGet provider is already installed."
     }
 }
-
 
 function Install-Dependencies {
     param (
@@ -416,17 +425,21 @@ function Install-Dependencies {
 
     # Check if the Log4Posh module is installed
     $moduleInstalled = Get-Module -ListAvailable | Where-Object { $_.Name -eq $moduleName }
-
     if ($null -eq $moduleInstalled) {
         # First, we will need NuGet
         Install-NuGetProvider
 
         Write-Host "$moduleName module is not installed. Installing..."
-
         # Install the Log4Posh module from the OttoMatt repository
         Install-Module -Name $moduleName -Scope CurrentUser -Force
-
-        Write-Host "$moduleName module installed successfully."
+        Write-Host "Check if $moduleName module is property installed..."
+        $moduleInstalled = Get-Module -ListAvailable | Where-Object { $_.Name -eq $moduleName }
+        if ($null -eq $moduleInstalled) {
+            Write-Host "Failed to install $moduleName module."
+            exit 1
+        } else {
+            Write-Host "$moduleName module installed successfully."
+        }
     } else {
         Write-Host "$moduleName module is already installed."
     }
