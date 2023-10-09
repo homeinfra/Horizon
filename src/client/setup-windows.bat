@@ -8,7 +8,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: This is the file to download to setup the development environment up to a repo checked out in WSL
+:: This is the file to download to setup the client environment up to a repo checked out in WSL
 set scriptUrl="https://raw.githubusercontent.com/homeinfra/Horizon/feature/docker/src/client/setup-windows.ps1"
 
 :: This is the filename
@@ -19,14 +19,14 @@ set pwd=%~dp0
 
 :: If we don't have the file, download it!
 if not exist "%pwd%\%scriptName%" (
-    :: Use powershel for the download
-    powershell.exe -ExecutionPolicy Bypass -command "(New-Object System.Net.WebClient).DownloadFile('%scriptURL%', '%pwd%\%scriptName%')"
+  :: Use powershel for the download
+  powershell.exe -ExecutionPolicy Bypass -command "(New-Object System.Net.WebClient).DownloadFile('%scriptURL%', '%pwd%\%scriptName%')"
 
-    :: Check the download result
-    if %errorlevel% neq 0 (
-        echo Error: Failed to download %scriptName%.
-        exit /b 1
-    )
+  :: Check the download result
+  if %errorlevel% neq 0 (
+    echo Error: Failed to download %scriptName%.
+    exit /b 1
+  )
 )
 
 :: Execute the script
