@@ -99,25 +99,19 @@ function Install-Docker {
   # Check if package is already installed
   $packageExists = (winget list --accept-source-agreements) -match "$packageName"
   if ($false -eq $packageExists) {
-    Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
+    Write-Log -Level 'INFO' -Message "Preparing to install {0}..." -Arguments $packageName
 
     # Raise privileges immediately. They will be needed anyway during install and we don't want
     # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
     Assert-Admin "to install Docker"
 
-    winget install --accept-package-agreements --accept-source-agreements -e --id $packageName --Silent
+    # There could be a restart during docker installation. Make sure we will resume if it happens
+    Set-AutoExec
 
-    # Perform the same check to make sure Docker properly installed
-    $packageExists = (winget list --accept-source-agreements) -match "$packageName"
-    if ($false -eq $packageExists) {
-      Write-Log -Level 'ERROR' -Message "{0} failed to install" -Arguments $packageName
-      exit 1
-    } else {
-      $doINeedToRestart = $true
-      Write-Log -Level 'INFO' -Message "{0} installed successfully" -Arguments $packageName
-    }
-  } else {
-    Write-Log -Level 'DEBUG' -Message "{0} is already installed" -Arguments $packageName
+    # Actually install Docker
+    Install-Using-Winget $packageName
+
+    $doINeedToRestart = $true
   }
 
   # The PATH will have changed on the OS. Reload it so the next check works
@@ -409,6 +403,73 @@ function Reset-AutoExec {
   }
 }
 
+# https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
+function Fix-WinGet {
+  $folderName = 'winget-fixes'
+  
+  # Path where fix downloads should be stored
+  $dlFolder = Join-Path -Path $ROOT -ChildPath $folderName
+
+  # Ensure the folder exists
+  if (-not (Test-Path -Path $dlFolder)) {
+      New-Item -Path $dlFolder -ItemType Directory
+  }
+
+  $apiLatestUrl = if ($Prerelease) { 'https://api.github.com/repos/microsoft/winget-cli/releases?per_page=1' } else { 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' }
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  $WebClient = New-Object System.Net.WebClient
+
+  function Get-LatestUrl	{
+		((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
+  }
+
+  function Get-LatestHash {
+    $shaUrl = ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt$' }).browser_download_url
+    $shaFile = Join-Path -Path $dlFolder -ChildPath 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt'
+    $WebClient.DownloadFile($shaUrl, $shaFile)
+    Get-Content $shaFile
+  }
+  $desktopAppInstaller = @{
+    fileName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+    url      = $(Get-LatestUrl)
+    hash     = $(Get-LatestHash)
+  }
+  $vcLibsUwp = @{
+    fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
+    url      = 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx'
+    hash     = '9BFDE6CFCC530EF073AB4BC9C4817575F63BE1251DD75AAA58CB89299697A569'
+  }
+  $uiLibsUwp = @{
+    fileName = 'Microsoft.UI.Xaml.2.7.zip'
+    url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.7.0'
+    hash     = '422FD24B231E87A842C4DAEABC6A335112E0D35B86FAC91F5CE7CF327E36A591'
+  }
+  $dependencies = @($desktopAppInstaller, $vcLibsUwp, $uiLibsUwp)
+  Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
+  foreach ($dependency in $dependencies) {
+    $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
+    if (-Not ((Test-Path -Path $dependency.file -PathType Leaf) -And $dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
+      Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $($dependency.url)
+      try {
+        $WebClient.DownloadFile($dependency.url, $dependency.file)
+      }
+      catch {
+        #Pass the exception as an inner exception
+        throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
+      }
+      if (-not ($dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
+        throw [System.Activities.VersionMismatchException]::new('Dependency hash does not match the downloaded file')
+      }
+    }
+  }
+
+  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx)))	{
+    Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.7') -Force
+  }
+  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx)
+  Add-AppxPackage -Path $($desktopAppInstaller.file) -DependencyPath $($vcLibsUwp.file), $($uiLibsUwp.file)
+}
+
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
 function Assert-Admin {
   param (
@@ -435,6 +496,33 @@ function Assert-Admin {
   }
   else {
     Write-Log -Level 'DEBUG' -Message "Already running as an administrator. Proceeding..."
+  }
+}
+
+function Install-Using-Winget {
+  param (
+    [string]$packageName
+  )
+
+  $packageExists = (winget list --accept-source-agreements) -match "$packageName"
+  if ($false -eq $packageExists) {
+    Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
+
+    # It could be that WinGet is broken
+    Fix-WinGet
+
+    winget install --accept-package-agreements --accept-source-agreements -e --id $packageName --Silent
+
+    # Perform the same check to make sure Docker properly installed
+    $packageExists = (winget list --accept-source-agreements) -match "$packageName"
+    if ($false -eq $packageExists) {
+      Write-Log -Level 'ERROR' -Message "{0} failed to install" -Arguments $packageName
+      exit 1
+    } else {
+      Write-Log -Level 'INFO' -Message "{0} installed successfully" -Arguments $packageName
+    }
+  } else {
+    Write-Log -Level 'DEBUG' -Message "{0} is already installed" -Arguments $packageName
   }
 }
 
