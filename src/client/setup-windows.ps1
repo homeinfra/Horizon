@@ -173,6 +173,9 @@ function Install-WSLDistro {
       # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
       Set-AutoExec
 
+      # Must be installed without privilege elevation
+      Assert-NotAdmin "to install $distroName"
+
       wsl --install -d $distroName
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
@@ -472,13 +475,39 @@ function Fix-WinGet {
 }
 
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
+function Assert-NotAdmin {
+  param (
+    [string]$taskName
+  )
+
+  Write-Log -Level 'DEBUG' -Message "Regular privileges are required {0}. Checking..." -Arguments $taskName
+  $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+  if (-not ($currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
+    Write-Log -Level 'DEBUG' -Message "Already running with basic permissions. Proceeding..."
+  } else {
+    Write-Log -Level 'WARNING' -Message "You have administrative privileges currently. Unelevation required to perform this task. Unelevating..."
+    try {
+      # Restart the script without administrative privileges
+      Start-Process -FilePath "runas" -ArgumentList `
+      "/trustlevel:0x20000 /machine:amd64 `"powershell.exe -ExecutionPolicy Bypass -File $($global:MyInvocation.MyCommand.Path) $global:args`""
+} catch {
+     Write-Log -Level 'ERROR' -Message "Unelevation failed. Exiting in error..."
+     exit 1
+   }
+
+    Write-Log -Level 'INFO' -Message "Unelevation succeeded. Exiting..."
+    exit 0
+  }
+}
+
+# Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
 function Assert-Admin {
   param (
-    [string]$taksName
+    [string]$taskName
   )
 
   # First check if we are already running as an admin or not
-  Write-Log -Level 'DEBUG' -Message "Administrative privileges are required {0}. Checking..." -Arguments $taksName
+  Write-Log -Level 'DEBUG' -Message "Administrative privileges are required {0}. Checking..." -Arguments $taskName
   $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
   if (-not ($currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))) {
     Write-Log -Level 'WARNING' -Message "You need administrative privileges to perform this task. Elevating..."
