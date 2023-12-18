@@ -105,9 +105,6 @@ function Install-Docker {
     # a new PowerShell session for reboot at the end. We need to stay in context during the whole install
     Assert-Admin "to install Docker"
 
-    # There could be a restart during docker installation. Make sure we will resume if it happens
-    Set-AutoExec
-
     # Actually install Docker
     Install-Using-Winget $packageName
 
@@ -172,6 +169,10 @@ function Install-WSLDistro {
   $WslDistribution = Get-WslDistribution $distroName
   if (-not $WslDistribution) {
       Write-Log -Level 'INFO' -Message "{0} is not installed. Installing..." -Arguments $distroName
+
+      # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
+      Set-AutoExec
+
       wsl --install -d $distroName
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
@@ -564,7 +565,7 @@ function Install-Dependencies {
     Install-Module -Name $moduleName -Scope CurrentUser -Force
 
     # Check for the module again
-    Write-Host "Check if $moduleName module is property installed..."
+    Write-Host "Check if $moduleName module is properly installed..."
     $moduleInstalled = Get-Module -ListAvailable | Where-Object { $_.Name -eq $moduleName }
     if ($null -eq $moduleInstalled) {
       Write-Host "Failed to install $moduleName module."
