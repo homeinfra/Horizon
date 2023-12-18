@@ -3,7 +3,7 @@
   "shellcheck.useWorkspaceRootAsCwd": true,
   "shellcheck.customArgs": ["--enable", "all", "-x"],
   "editor.codeActionsOnSave": {
-    "source.fixAll.shellcheck": true
+    "source.fixAll.shellcheck": "explicit"
   },
   "python.linting.pylamaEnabled": true,
   "python.linting.enabled": true,
