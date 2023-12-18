@@ -173,9 +173,6 @@ function Install-WSLDistro {
       # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
       Set-AutoExec
 
-      # Must be installed without privilege elevation (might not be true)
-      # Assert-NotAdmin "to install $distroName"
-
       wsl --install -d $distroName
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
