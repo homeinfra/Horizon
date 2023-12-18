@@ -412,7 +412,7 @@ function Fix-WinGet {
 
   # Ensure the folder exists
   if (-not (Test-Path -Path $dlFolder)) {
-      New-Item -Path $dlFolder -ItemType Directory
+    $null = New-Item -Path $dlFolder -ItemType Directory
   }
 
   $apiLatestUrl = if ($Prerelease) { 'https://api.github.com/repos/microsoft/winget-cli/releases?per_page=1' } else { 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' }
@@ -449,7 +449,7 @@ function Fix-WinGet {
   foreach ($dependency in $dependencies) {
     $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
     if (-Not ((Test-Path -Path $dependency.file -PathType Leaf) -And $dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
-      Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $($dependency.url)
+      Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $dependency.url
       try {
         $WebClient.DownloadFile($dependency.url, $dependency.file)
       }
@@ -589,7 +589,7 @@ function Start-Logging {
   try {
     # Ensure the log directory exists
     if (-not (Test-Path -Path $logDirectory)) {
-        New-Item -Path $logDirectory -ItemType Directory
+      $null = New-Item -Path $logDirectory -ItemType Directory
     }
 
     # Generate the log filename
@@ -625,7 +625,7 @@ function Start-Logging {
 #############
 # Constants #
 #############
-$AutoExecName = "setup_windows"
+$AutoExecName = "jeremfg_setup_windows"
 $distroName = "Ubuntu-22.04"
 $wslUser = $null
 $repoUrl = "https://github.com/homeinfra/Horizon.git"

@@ -1,9 +1,14 @@
 # Horizon
-This repository describes in a GitOps fashion the setup of my kuberetes cluster named Horizon (in homage to the [Event Horizon Telescope (EHT)](https://en.wikipedia.org/wiki/Event_Horizon_Telescope)).
+This repository describes in a GitOps fashion the setup of my kubernetes cluster named Horizon (in homage to the [Event Horizon Telescope (EHT)](https://en.wikipedia.org/wiki/Event_Horizon_Telescope)).
 
 ## Quick Start
-To get setup locally as a client and control Horizon, simply download [this file](src/client/setup-windows.bat) in a folder to use a a work directory and execute it.
-This will set you up with WSL, Ubuntu and a copy of this repository in your home direcotry.
+The client environment is currently supported for the following:
+### Windows 10 (or superior)
+[Download and execute this script](src/client/setup-windows.bat). This script is desgined to run on a fresh vanilla installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment (running under WSL 2) where Docker is supported and this repository was cloned.
+### Ubuntu
+[Download and execute this script](src/client/setup-linux.sh). This script is designed to run on a fresh vanilla installation of Ubuntu, but might work on any debian-based distribution that supports apt-get. At the end of it's execution, it will have setup an environment where docker is supported and this respository was cloned.
+
+You are now fully setup. Everything will run using the linux shell and docker. You can launch any executable you wish from within the repository that was just cloned. Keep on reading to figure out what to execute.
 
 ## About this repo
 
@@ -42,32 +47,36 @@ Second worker node for my Horizon k8s cluster. Named in honor of [Urbain Le Verr
 
 ## TODOs
 TODO For the current docker branch
-1. Installed the right version of SOPS in the container (currently have the old version 1 in python).
-2. Configure the dotenv-linter. Make it happy with the current .config/ files.
-3. Install xe-cli into the docker image.
-4. Make sure we are at the same stage as this spring.
+1. Complete and finalize testing of the Windows deployment script.
+2. Do the Unbuntu deployment script.
+3. Installed the right version of SOPS in the container (currently have the old version 1 in python).
+4. Configure the dotenv-linter. Make it happy with the current .config/ files.
+5. Install pre-commit the right way and look at the missing/proposed formatter that aren't already there.
+6. Install xe-cli into the docker image.
+7. Make sure we are at the same stage as this spring.
 
 TODO For mid term
-5. Rename logger.sh into slf4sh.sh.
-6. Extract it and semver into libraries to be published on my github account. Look into shell package managers.
-7. Rework lib xapi-shell to remove MS Windows quirks. Streamline with new strategy of "out" function parameters.
+8. Rename logger.sh into slf4sh.sh.
+9. Extract it and semver into libraries to be published on my github account. Look into shell package managers.
+10. Extract the environment setup scripts into their own modules so they can be shared.
+11. Rework lib xapi-shell to remove MS Windows quirks. Streamline with new strategy of "out" function parameters. Or maybe replace with python3?
 
 TODO For long term (Finally caught up? Proceed with next steps...)
-8. Get SSH key automatic generation working.
-9. Attempt a transition to terraform.
-10. Attempt a switch from FCOS to Talos. Apparently it even has terraform support.
-11. Deploy 2 k8s control nodes
-12. Deploy 2 k8s worker nodes
-13. Deploy CNI calico
-14. Configure geolocation configuration (multi-site storage constraints)
-15. Deploy CSI smb
-18. Deploy bluebook
-19. Deploy XOA
-20. Deploy Unify controller
-16. Deploy external ingress controller (Can publish DNS updates to Namecheap)
-17. Deploy internal ingress controller (Can configure Unboud on OPNsense)
-21. Look for a centralized logging solution (SYSLOG server? - try to have better than emails)
-21. Deploy Owncould (or similar - backup pictures on cellphones automatically)
-22. Deploy Jellyfin
-23. Deploy Arrrr
-24. Deploy Home Assistant
+12. Get SSH key automatic generation working.
+13. Attempt a transition to terraform.
+14. Attempt a switch from FCOS to Talos. Apparently it even has terraform support.
+15. Deploy 2 k8s control nodes
+16. Deploy 2 k8s worker nodes
+17. Deploy CNI calico
+18. Configure geolocation configuration (multi-site storage constraints)
+19. Deploy CSI smb
+20. Deploy bluebook
+21. Deploy XOA
+22. Deploy Unify controller
+23. Deploy external ingress controller (Can publish DNS updates to Namecheap)
+24. Deploy internal ingress controller (Can configure Unboud on OPNsense)
+25. Look for a centralized logging solution (SYSLOG server? - try to have better than emails)
+26. Deploy Owncould (or similar - backup pictures on cellphones automatically)
+27. Deploy Jellyfin
+28. Deploy Arrrr
+29. Deploy Home Assistant
