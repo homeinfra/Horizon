@@ -1,18 +1,19 @@
 # Horizon
 This repository describes in a GitOps fashion the setup of my kubernetes cluster named Horizon (in homage to the [Event Horizon Telescope (EHT)](https://en.wikipedia.org/wiki/Event_Horizon_Telescope)).
 
-## Quick Start
+## Prerequisites
 The client environment is currently supported for the following:
 ### Windows 10 (or superior)
-[Download and execute this script](src/client/setup-windows.bat). This script is desgined to run on a fresh vanilla installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment (running under WSL 2) where Docker is supported and this repository was cloned.
+[Download and execute this script](src/client/setup-windows.bat). This script is designed to run on a fresh vanilla installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment (running under WSL 2) where Docker is supported and this repository was cloned.
 ### Ubuntu
 [Download and execute this script](src/client/setup-linux.sh). This script is designed to run on a fresh vanilla installation of Ubuntu, but might work on any debian-based distribution that supports apt-get. At the end of it's execution, it will have setup an environment where docker is supported and this respository was cloned.
 
 You are now fully setup. Everything will run using the linux shell and docker. You can launch any executable you wish from within the repository that was just cloned. Keep on reading to figure out what to execute.
 
-## About this repo
+## Quick Start
+Everything starts with the execution of [all.sh](all.sh) at the root. Calling this will deploy the cluster, as currently configured.
 
-Everything starts with the execution of [all.sh](all.sh) at the root.
+## About this repo
 Great care was taken in making sure this script will only perform edits to the environmnent, reaching the described and desired outcome like you would expect in a declarative philosophy.
 When it comes to persistent data, a retain policy is used to make sure no data is ever lost. It is deemed a manual task and human reponsibility to delete persistent data if desired and should not be automated.
 
