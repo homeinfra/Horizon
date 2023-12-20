@@ -15,6 +15,15 @@
 #
 # NOTE: Designed to run on a fresh Windows 10 install or later
 
+#############
+# Constants #
+#############
+$AutoExecName = "jeremfg_setup_windows"
+$distroName = "Ubuntu-22.04"
+$wslUser = $null
+$repoUrl = "https://github.com/homeinfra/Horizon.git"
+$repoBranch = "main"
+
 # Main function where the real execution begins
 function main {
   # Initialization
@@ -487,9 +496,9 @@ function Assert-NotAdmin {
       # Restart the script without administrative privileges
       Start-Process -FilePath "runas" -ArgumentList `
       "/trustlevel:0x20000 /machine:amd64 `"powershell.exe -ExecutionPolicy Bypass -File $($global:MyInvocation.MyCommand.Path) $global:args`""
-} catch {
-     Write-Log -Level 'ERROR' -Message "Unelevation failed. Exiting in error..."
-     exit 1
+    } catch {
+      Write-Log -Level 'ERROR' -Message "Unelevation failed. Exiting in error..."
+      exit 1
    }
 
     Write-Log -Level 'INFO' -Message "Unelevation succeeded. Exiting..."
@@ -649,24 +658,23 @@ function Start-Logging {
   Write-Log -Level 'INFO' -Message "Logging is configured and started"
 }
 
-#############
-# Constants #
-#############
-$AutoExecName = "jeremfg_setup_windows"
-$distroName = "Ubuntu-22.04"
-$wslUser = $null
-$repoUrl = "https://github.com/homeinfra/Horizon.git"
-$repoBranch = "main"
+# Find a root for this project
+function Get-Root {
+  $gitTopLevel = git rev-parse --show-toplevel 2>$null
+
+    if ($gitTopLevel) {
+        Write-Host "Root detected at: $gitTopLevel"
+        return $gitTopLevel
+    } else {
+        Write-Host "Git root not detected or git not installed. Assuming: $PSScriptRoot"
+        return $PSScriptRoot
+    }
+}
 
 ##################
 # Determine ROOT #
 ##################
-$ROOT = Get-Item -Path $(Join-Path -Path $PSScriptRoot -ChildPath "..\..")
-# If we do NOT find a .gitignore file, we assume the file is alone.
-# This is not the full git repository (exported or not). Set ROOT at our level instead.
-if (-Not (Test-Path "$ROOT\.gitignore")) {
-  $ROOT = $PSScriptRoot
-}
+$ROOT = Get-Root
 
 ###############
 # Entry Point #
