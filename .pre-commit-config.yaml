@@ -30,7 +30,6 @@ repos:
         args: [--enable, all, -x]
       - id: git-check
       - id: git-dirty
-      - id: markdownlint
       - id: script-must-have-extension
         types: [shell, non-executable]
       - id: script-must-not-have-extension
@@ -67,3 +66,8 @@ repos:
         language: system
         entry: dotenv-linter
         files: '^(.*\.env)$'
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: ["--fix"]

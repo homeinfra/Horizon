@@ -12,6 +12,7 @@
 # Todo:
 # - Generalize this script by making the repo to be checked out a parameter/argument
 # - Turn this script (and accompanying .bat file) into a Powershell module in it's own git repo
+# - Make sure that the automatic execution after reboot uses the same arguments that were orginally passed
 #
 # NOTE: Designed to run on a fresh Windows 10 install or later
 
@@ -416,7 +417,7 @@ function Reset-AutoExec {
 # https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
 function Fix-WinGet {
   $folderName = 'winget-fixes'
-  
+
   # Path where fix downloads should be stored
   $dlFolder = Join-Path -Path $ROOT -ChildPath $folderName
 
