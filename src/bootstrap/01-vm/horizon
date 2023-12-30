@@ -55,7 +55,7 @@ load_ssh_key() {
       logTrace "Successfully created SSH keypair for ${1}"
 
       # Encrypt private key
-      sops -e --in-place --age "${SOPS_AGE_PUB}" "${private_key}"
+      sops -e --output-type yaml --in-place --age "${SOPS_AGE_PUB}" "${private_key}"
       res=$?
       if [[ "${res}" -eq 0 ]]; then
         logInfo "Private key for ${1} encrypted successfully"
