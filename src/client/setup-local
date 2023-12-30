@@ -157,7 +157,7 @@ install_ansible() {
 
   # Try it, to see if it's installed
   if ! ${exec} --version; then
-        logFatal "Failed to launch ${exec}"
+    logFatal "Failed to launch ${exec}"
   else
     logTrace "${exec} started"
   fi
@@ -194,7 +194,7 @@ install_wsl_port_forwarding() {
   fi
 
   # Try it, to see if it's installed
-  if ! ${exec} -h > /dev/null; then
+  if ! ${exec} -h >/dev/null; then
     logFatal "Failed to launch ${exec}"
   else
     logTrace "${exec} started"
@@ -205,7 +205,7 @@ install_wsl_port_forwarding() {
 }
 
 install_coreos_installer() {
-  pushd ~ > /dev/null || logFatal "no home dir"
+  pushd ~ >/dev/null || logFatal "no home dir"
   if ! ${COREOS_EXEC} -V; then
     logTrace "Installing coreos-installer from source..."
     if ! cargo install coreos-installer; then
@@ -216,7 +216,7 @@ install_coreos_installer() {
   else
     logInfo "coreos-installer already installed"
   fi
-  popd > /dev/null || logFatal "Failed to pop ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop ${LINENO}"
 }
 
 uninstall() {
@@ -238,19 +238,19 @@ parse() {
     # shellcheck disable=2068
     for i in ${ARGS[@]}; do
       case ${i} in
-        -h | --help)
-          print_help
-          ;;
-        -v | --version)
-          ${SEMVER_EXEC}
-          ;;
-        -u | --uninstall)
-          uninstall
-          ;;
-        *)
-          print_help
-          logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
-          ;;
+      -h | --help)
+        print_help
+        ;;
+      -v | --version)
+        ${SEMVER_EXEC}
+        ;;
+      -u | --uninstall)
+        uninstall
+        ;;
+      *)
+        print_help
+        logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
+        ;;
       esac
     done
     end
@@ -299,7 +299,7 @@ log "== ${ME} Started =="
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env

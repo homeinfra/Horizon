@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # SLF4SH: Simple Logging Facade for Shell
@@ -145,8 +145,7 @@ log() {
   date=$(date +%F)
   time=$(date +%H:%M:%S)
   if [[ -z "$2" ]]; then
-    $2 = $1
-    $1 = "       "
+    set -- "       " "$1"
   fi
   full="${date} ${time}"
   # Misleading on first sight. Remember that anything sent to stdout is also captured to file.

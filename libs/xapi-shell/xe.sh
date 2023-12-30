@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # Adds helper functions for the xe cli tool
@@ -18,15 +18,15 @@ VM_RAM="${VM_RAM:-""}"           # Amount of RAM the VM should be mounted with (
 VM_DISK="${VM_DISK:-""}"         # Disk size the VM should be mounted with (mandatory if no template)
 VM_CPU="${VM_CPU:-""}"           # Number of CPUs the VM should be mounted with (mandatory if no template)
 VM_SR="${VM_SR:-""}"             # Storage repository where this VM's disk should be created
-VM_TAGS="${VM_TAGS:-""}"         # Tags to be added to the VM at creation. Exemple Tags: 	post_autostartup, pre_shutdown
+VM_TAGS="${VM_TAGS:-""}"         # Tags to be added to the VM at creation. Exemple Tags: post_autostartup, pre_shutdown
 
 # In/Out parameters (Filled up by this library, can be used by the calling code)
-TEMPLATE_UUID=""    # Set after a call to: xe_find_tempalte
-VM_UUID=""          # Set after a call to: xe_find_vm, xe_install_vm
-VIF_UUID=""         # Set after a call to: xe_attach_network
-ISO_UUID=""         # Set after a call to: xe_find_iso
-SR_UUID=""          # Set after a call to: xe_find_sr
-VDI_UUID=""         # Set after a call to: xe_find_disk, xe_create_disk
+TEMPLATE_UUID="" # Set after a call to: xe_find_tempalte
+VM_UUID=""       # Set after a call to: xe_find_vm, xe_install_vm
+VIF_UUID=""      # Set after a call to: xe_attach_network
+ISO_UUID=""      # Set after a call to: xe_find_iso
+SR_UUID=""       # Set after a call to: xe_find_sr
+VDI_UUID=""      # Set after a call to: xe_find_disk, xe_create_disk
 
 #####################################
 ###### PUBLIC API ###################
@@ -63,7 +63,7 @@ xe_init() {
   LOGIN="-s ${XEN_HOST} -u ${XEM_USER} -pw ${XEN_PWD} -p ${XEN_PORT}"
   cmd="\"${XE}\" ${LOGIN} help"
 
-  if ! eval "${cmd}" > /dev/null; then
+  if ! eval "${cmd}" >/dev/null; then
     logFatal "XE is not working"
   fi
 
@@ -128,7 +128,7 @@ xe_find_iso() {
       fi
 
       line_count=$((line_count + 1))
-    done <<< "${RES}"
+    done <<<"${RES}"
   else
     logFatal "No CD available"
   fi
@@ -613,8 +613,8 @@ xe_find_disk() {
   code=$?
   # shellcheck disable=2312
   if [[ ${code} -ne 0 ]]; then
-        logFatal "XE Failed to list disks (${code}): ${RES}"
-  elif   [[ -n "${RES}" ]]; then
+    logFatal "XE Failed to list disks (${code}): ${RES}"
+  elif [[ -n "${RES}" ]]; then
     RES=$(echo "${RES%$'\r'}" | grep ': ')
     # We might be returned multiple disks. Loop through them
     local line_count=0
@@ -639,7 +639,7 @@ xe_find_disk() {
       fi
 
       line_count=$((line_count + 1))
-    done <<< "${RES}"
+    done <<<"${RES}"
   else
     logWarn "No disks present: ${RES}"
   fi
@@ -718,8 +718,8 @@ xe_upload_file() {
     # local queryString=${BASH_REMATCH[9]}
     # local gp_count=0
     # for elem in ${BASH_REMATCH[@]}; do
-    # 	gp_count=$(($gp_count + 1))
-    # 	echo "${gp_count}: $elem"
+    # gp_count=$(($gp_count + 1))
+    # echo "${gp_count}: $elem"
     # done
   else
     logFatal "Unparsable URI: ${XEN_ISO_LIB}"
@@ -738,118 +738,118 @@ xe_upload_file() {
 
   # Identify protocol being used
   case ${proto} in
-    file://*) # UNC/SMB
-      # We need to extract the first folder, and use it as share name
-      local path_regex='^(\/[^\/\n?]+)(\/([^\n?]+))*(.*)$'
-      if [[ "${path}" =~ ${path_regex} ]]; then
-          local share=${BASH_REMATCH[1]}
-        path=${BASH_REMATCH[3]}
-      else
-        logFatal "Unable to differentiate share and path in: \"${path}\""
-      fi
+  file://*) # UNC/SMB
+    # We need to extract the first folder, and use it as share name
+    local path_regex='^(\/[^\/\n?]+)(\/([^\n?]+))*(.*)$'
+    if [[ "${path}" =~ ${path_regex} ]]; then
+      local share=${BASH_REMATCH[1]}
+      path=${BASH_REMATCH[3]}
+    else
+      logFatal "Unable to differentiate share and path in: \"${path}\""
+    fi
 
-      # Build file check command
-      local uri="//${domain}${port}${share}"
-      local cmd="smbclient '${uri}' -U ${user}%${pwd} -c 'cd \"${path}\" ; ls ${name}'"
+    # Build file check command
+    local uri="//${domain}${port}${share}"
+    local cmd="smbclient '${uri}' -U ${user}%${pwd} -c 'cd \"${path}\" ; ls ${name}'"
 
-      # Execute check
-      local not_found_regex="^NT_STATUS_NO_SUCH_FILE listing.*${name}$"
-      local found_regex="^${name}.* blocks of size .*$"
-      local res=0
-      res=$(eval "${cmd}")
-      res="$(echo "${res%$'\r'}" | xargs)"
-      local err=$?
-      if [[ ${err} -ne 0 ]]; then
-        if [[ ${err} -eq 1 ]] && [[ "${res}" =~ ${not_found_regex} ]]; then
-          logInfo "File does not exists. Proceed with upload..."
-          logTrace "${res}"
-        else
-          logFatal "SMB Failed to list files in: ${uri}/${path} (${err}: ${res})"
-        fi
-      elif [[ -z "${res}" ]]; then
-        logFatal "We should not receive an empty response"
-      elif [[ "${res}" =~ ${found_regex}  ]]; then
-        logInfo "File already exists"
+    # Execute check
+    local not_found_regex="^NT_STATUS_NO_SUCH_FILE listing.*${name}$"
+    local found_regex="^${name}.* blocks of size .*$"
+    local res=0
+    res=$(eval "${cmd}")
+    res="$(echo "${res%$'\r'}" | xargs)"
+    local err=$?
+    if [[ ${err} -ne 0 ]]; then
+      if [[ ${err} -eq 1 ]] && [[ "${res}" =~ ${not_found_regex} ]]; then
+        logInfo "File does not exists. Proceed with upload..."
         logTrace "${res}"
-        return 0
       else
-        echo "${res}"
-        logFatal "Did we receive an error?"
+        logFatal "SMB Failed to list files in: ${uri}/${path} (${err}: ${res})"
       fi
+    elif [[ -z "${res}" ]]; then
+      logFatal "We should not receive an empty response"
+    elif [[ "${res}" =~ ${found_regex} ]]; then
+      logInfo "File already exists"
+      logTrace "${res}"
+      return 0
+    else
+      echo "${res}"
+      logFatal "Did we receive an error?"
+    fi
 
-      # Build upload command
-      local cmd="smbclient '${uri}' -U ${user}%${pwd} -c 'cd \"${path}\" ; put ${i} ${name}'"
+    # Build upload command
+    local cmd="smbclient '${uri}' -U ${user}%${pwd} -c 'cd \"${path}\" ; put ${i} ${name}'"
 
-      # Perform the upload
-      logInfo "SMB upload \"$1\" to: ${uri}/${path}"
-      if ! eval "${cmd}"; then
-        logFatal "SMB Failed to upload \"$1\" to: ${uri}/${path}"
-      else
-        logInfo "Upload of $1 successful"
-      fi
-      ;;
-    scp://*) # SSH
+    # Perform the upload
+    logInfo "SMB upload \"$1\" to: ${uri}/${path}"
+    if ! eval "${cmd}"; then
+      logFatal "SMB Failed to upload \"$1\" to: ${uri}/${path}"
+    else
+      logInfo "Upload of $1 successful"
+    fi
+    ;;
+  scp://*) # SSH
 
-      # Proceed with check
-      local cmd="sshpass -p ${pwd} ssh -oStrictHostKeyChecking=no ${user}@${domain}${port} 'test -e ${path}/${name}'"
-      local code=0
-      eval "${cmd}"
-      code=$?
-      if [[ ${code} -ne 0 ]]; then
-        case ${code} in
-          1)
-            logInfo "File does not exists. Proceeding with upload"
-            ;;
-          5)
-            logFatal "Permission denied. Check username and password"
-            ;;
-          127)
-            logFatal "Command not found"
-            ;;
-          255)
-            logFatal "Could not resolve location ${domain}"
-            ;;
-          *)
-            logFatal "Unknown error code (${code}) while checking if file exists: ${path}/${name}"
-            ;;
-        esac
-      else
-        logInfo "File already exists!"
-        return 0
-      fi
+    # Proceed with check
+    local cmd="sshpass -p ${pwd} ssh -oStrictHostKeyChecking=no ${user}@${domain}${port} 'test -e ${path}/${name}'"
+    local code=0
+    eval "${cmd}"
+    code=$?
+    if [[ ${code} -ne 0 ]]; then
+      case ${code} in
+      1)
+        logInfo "File does not exists. Proceeding with upload"
+        ;;
+      5)
+        logFatal "Permission denied. Check username and password"
+        ;;
+      127)
+        logFatal "Command not found"
+        ;;
+      255)
+        logFatal "Could not resolve location ${domain}"
+        ;;
+      *)
+        logFatal "Unknown error code (${code}) while checking if file exists: ${path}/${name}"
+        ;;
+      esac
+    else
+      logInfo "File already exists!"
+      return 0
+    fi
 
-      # If there's no port, we still need the colon for SCP
-      if [[ -z "${port}" ]]; then
-        port=":"
-      fi
+    # If there's no port, we still need the colon for SCP
+    if [[ -z "${port}" ]]; then
+      port=":"
+    fi
 
-      # Proceed with upload
-      cmd="sshpass -p ${pwd} scp -oStrictHostKeyChecking=no ${i} ${user}@${domain}${port}${path}/${name}"
-      eval "${cmd}"
-      code=$?
-      if [[ ${code} -ne 0 ]]; then
-        case ${code} in
-          2)
-            logInfo "File not found. Proceeding with upload"
-            ;;
-          5)
-            logFatal "Permission denied. Check username and password"
-            ;;
-          255)
-            logFatal "Could not resolve location ${domain}"
-            ;;
-          *)
-            logFatal "Unknown error code (${code}) while checking if file exists: ${path}/${name}"
-            ;;
-        esac
-      else
-        logInfo "File uploaded successfully!"
-      fi
+    # Proceed with upload
+    cmd="sshpass -p ${pwd} scp -oStrictHostKeyChecking=no ${i} ${user}@${domain}${port}${path}/${name}"
+    eval "${cmd}"
+    code=$?
+    if [[ ${code} -ne 0 ]]; then
+      case ${code} in
+      2)
+        logInfo "File not found. Proceeding with upload"
+        ;;
+      5)
+        logFatal "Permission denied. Check username and password"
+        ;;
+      255)
+        logFatal "Could not resolve location ${domain}"
+        ;;
+      *)
+        logFatal "Unknown error code (${code}) while checking if file exists: ${path}/${name}"
+        ;;
+      esac
+    else
+      logInfo "File uploaded successfully!"
+    fi
 
-      ;;
-    *)
-      logFatal "Unsupported protocol: ${XEN_ISO_LIB}"
-      ;;
+    ;;
+  *)
+    logFatal "Unsupported protocol: ${XEN_ISO_LIB}"
+    ;;
   esac
 
   return 0
@@ -863,7 +863,7 @@ xe_find_vbd_device_id() {
   # We need a VBD number
   xe_get_vm_param "allowed-VBD-devices"
   local RES=0
-  RES=${PARAM//;/} # Seperate by removing the semicolon
+  RES=${PARAM//;/}                # Seperate by removing the semicolon
   RES=$(printf "%s" "${RES%% *}") # Take the first element
 
   # Make sure we have a valid number
@@ -879,7 +879,7 @@ xe_find_vif_device_id() {
   # We need a VIF number
   xe_get_vm_param "allowed-VIF-devices"
   local RES=0
-  RES=${PARAM//;/} # Seperate by removing the semicolon
+  RES=${PARAM//;/}                # Seperate by removing the semicolon
   RES=$(printf "%s" "${RES%% *}") # Take the first element
 
   # Make sure we have a valid number

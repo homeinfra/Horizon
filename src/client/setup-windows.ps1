@@ -430,8 +430,8 @@ function Fix-WinGet {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   $WebClient = New-Object System.Net.WebClient
 
-  function Get-LatestUrl	{
-		((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
+  function Get-LatestUrl {
+    ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
   }
 
   function Get-LatestHash {
@@ -474,7 +474,7 @@ function Fix-WinGet {
     }
   }
 
-  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx)))	{
+  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx))) {
     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.7') -Force
   }
   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx)

@@ -62,7 +62,7 @@ fix_snap() {
   local res=0
 
   # Check that systemd is enabled
-  grep 'systemd=true' < /etc/wsl.conf > /dev/null
+  grep 'systemd=true' </etc/wsl.conf >/dev/null
   res=$?
   if [[ ${res} -eq 0 ]]; then
     logTrace "systemd is enabled"
@@ -80,7 +80,7 @@ https://learn.microsoft.com/en-us/windows/wsl/wsl-config#systemd-support"
   fi
 
   # Check that the fix for running Win32 apps on WSL is implemented
-  grep ':WSLInterop:M::MZ::/init:PF' < /usr/lib/binfmt.d/WSLInterop.conf > /dev/null
+  grep ':WSLInterop:M::MZ::/init:PF' </usr/lib/binfmt.d/WSLInterop.conf >/dev/null
   res=$?
   if [[ ${res} -eq 0 ]]; then
     logTrace "The fix fox systemd and win32 executables was detected"
@@ -105,19 +105,19 @@ parse() {
   else
     for i in "${ARGS[@]}"; do
       case ${i} in
-        -h | --help)
-          print_help
-          ;;
-        -v | --version)
-          ${SEMVER_EXEC}
-          ;;
-        -u | --uninstall)
-          uninstall
-          ;;
-        *)
-          print_help
-          logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
-          ;;
+      -h | --help)
+        print_help
+        ;;
+      -v | --version)
+        ${SEMVER_EXEC}
+        ;;
+      -u | --uninstall)
+        uninstall
+        ;;
+      *)
+        print_help
+        logFatal "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
+        ;;
       esac
     done
     end
@@ -163,7 +163,7 @@ log "== ${ME} Started =="
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env

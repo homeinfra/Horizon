@@ -80,25 +80,25 @@ parse() {
   else
     for i in "${ARGS[@]}"; do
       case ${i} in
-        -h | --help)
-          print_help
-          ;;
-        -v | --version)
-          echo "${VERSION}"
-          ;;
-        --file | --file=?*)
-          local file="version.properties"
-          if [[ "${i}" != '--file' ]]; then
-            file=${i##*=}
-          fi
-            git_version
-            echo "VERSION=${SEM_VERSION}" > "${file}"
-          ;;
-        *)
-          print_help
-          echo "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
-          exit 1
-          ;;
+      -h | --help)
+        print_help
+        ;;
+      -v | --version)
+        echo "${VERSION}"
+        ;;
+      --file | --file=?*)
+        local file="version.properties"
+        if [[ "${i}" != '--file' ]]; then
+          file=${i##*=}
+        fi
+        git_version
+        echo "VERSION=${SEM_VERSION}" >"${file}"
+        ;;
+      *)
+        print_help
+        echo "Unexpected arguments (${NUM_ARGS}): ${ARGS[*]}"
+        exit 1
+        ;;
       esac
     done
   fi

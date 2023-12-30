@@ -27,7 +27,7 @@ main() {
 test_is_admin() {
   # Test if we are running as administrator (needed for port_forwarding)
   if [[ "${IS_WSL}" -eq 1 ]]; then
-    if ! net.exe session &> /dev/null; then
+    if ! net.exe session &>/dev/null; then
       logFatal "You must run this console with elevated administrative privileges"
     fi
   fi
@@ -101,7 +101,7 @@ load_ssh_key() {
   fi
 
   # Obtain the public key
-  SSH_KEY=$(sed -e 's/^\([^ ]* *[^ ]*\).*$/\1/' < "${public_key}")
+  SSH_KEY=$(sed -e 's/^\([^ ]* *[^ ]*\).*$/\1/' <"${public_key}")
   res=$?
   if [[ ${res} -ne 0 ]]; then
     logFatal "Failed to obtain public SSH key (${res})"
@@ -119,11 +119,11 @@ deploy_Sagittarius() {
   export LOCAL_CONFIG=".config/demers.env:.config/local.env"
 
   mkdir -p "${host_bindir}"
-  pushd "${host_bindir}" > /dev/null || logFatal "No bindir"
+  pushd "${host_bindir}" >/dev/null || logFatal "No bindir"
 
   load_ssh_key "${host}"
 
-    # Generate Butane for this node
+  # Generate Butane for this node
   cp "${IGNITION_IN}" custom.bu
   # shellcheck disable=2154
   sed -i -e "s,<hostname>,${host}," \
@@ -179,7 +179,7 @@ deploy_Sagittarius() {
     fi
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 deploy_Messier() {
@@ -225,7 +225,7 @@ start_server() {
 
   # Start webserver for Fedora CoreOS ignition
   SERVER_PID=""
-  if ! (python "${SERVER_EXEC}" &> /dev/null &) then
+  if ! ("${SERVER_EXEC}" &>/dev/null &) then
     logFatal "Cannot launch HTTPS server"
   else
     SERVER_PID=$(pgrep 'python')
@@ -239,7 +239,7 @@ start_server() {
   # Start WSL port forwarding
   if [[ "${IS_WSL}" -eq 1 ]]; then
     FORWARD_PID=""
-    if ! (port_forwarding &> /dev/null &) then
+    if ! (port_forwarding &>/dev/null &) then
       pkill -9 -f python
       logFatal "Could not launch WSL port_forwarding"
     else
@@ -360,7 +360,7 @@ upload_iso() {
 }
 
 download_butane() {
-  pushd "${COREOS_BINDIR}" > /dev/null || logFatal "No CoreOS bindir"
+  pushd "${COREOS_BINDIR}" >/dev/null || logFatal "No CoreOS bindir"
 
   local base=0
   # shellcheck disable=2154
@@ -370,7 +370,7 @@ download_butane() {
   echo "Make sure we have butane locally: ${base}"
   if [[ -f "${base}" ]]; then
     logInfo "Butane is already downloaded"
-    popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+    popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
     return 0
   fi
 
@@ -381,7 +381,7 @@ download_butane() {
     logInfo "Butane downloaded to: ${BUTANE}"
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 modify_iso() {
@@ -397,11 +397,11 @@ modify_iso() {
     return 0
   fi
 
-  pushd "${COREOS_BINDIR}" > /dev/null || logFatal "No CoreOS bindir"
+  pushd "${COREOS_BINDIR}" >/dev/null || logFatal "No CoreOS bindir"
 
   # shellcheck disable=2154
   # Generate the Butane file we want to embedded in the ISO
-  cat > "${butane_file}" <<- EOF
+  cat >"${butane_file}" <<-EOF
 variant: fcos
 version: 1.5.0
 ignition:
@@ -429,7 +429,7 @@ EOF
     logInfo "Custom ISO generated: ${ISO_CUSTOM}"
   fi
 
-  popd > /dev/null || logFatal "Failed to pop @ ${LINENO}"
+  popd >/dev/null || logFatal "Failed to pop @ ${LINENO}"
 }
 
 ###########################
@@ -443,7 +443,7 @@ ME="$(basename "$0")"
 COREOS_BINDIR=${ROOT}/build/coreos-iso
 COREOS_EXEC=$(realpath ~/.cargo/bin/coreos-installer)
 
-SERVER_EXEC="${ROOT}/src/bootstrap/01-vm/ignition_server.py"
+SERVER_EXEC="${ROOT}/src/bootstrap/01-vm/ignition_server"
 DEPLOY_EXEC="${ROOT}/src/bootstrap/01-vm/deploy_vm"
 LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
 SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
@@ -457,7 +457,7 @@ fi
 # Load configuration
 source "${ROOT}/.config/default.env"
 # shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<< "${LOCAL_CONFIG}"
+IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
 for config in "${CONFIGS[@]}"; do
   log "Loading config: ${config}"
   # shellcheck source=.config/default.env
