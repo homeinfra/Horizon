@@ -108,11 +108,7 @@ function Install-Winget {
     Get-Command winget -ErrorAction Stop >$null
   } catch {
       Write-Host "WinGet doesn't seem to be installed. Installing..."
-      Assert-Admin "to install WinGet"
       Fix-WinGet
-      Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
-      Set-AutoExec
-      Restart-Host
   }
 }
 
@@ -499,6 +495,9 @@ function Fix-WinGet {
   }
   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx)
   Add-AppxPackage -Path $($desktopAppInstaller.file) -DependencyPath $($vcLibsUwp.file), $($uiLibsUwp.file)
+  # Try to fix issue that I can fix manually with a reinstall
+  Remove-AppxPackage -Package Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -AllUsers
+  Add-AppxPackage -Path $($desktopAppInstaller.file)
 }
 
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
