@@ -9,9 +9,17 @@ The client environment is currently supported for the following:
 
 ### Windows 10 (or superior)
 
-[Download and execute this script](src/client/setup-windows.bat). This script is designed to run on a fresh vanilla
-installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment (running under WSL 2)
-where Docker is supported and this repository was cloned.
+Open a command prompt window (CND) and execute the following command:
+
+```bat
+bitsadmin /transfer setup ^
+https://raw.githubusercontent.com/homeinfra/Horizon/feature/docker/src/client/setup-windows.bat ^
+%cd%\setup-windows.bat & setup-windows.bat
+```
+
+This will download and execute [this script](src/client/setup-windows.bat). This script is designed to run on a fresh
+vanilla installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment
+(running under WSL 2) where Docker is supported, the specified repository cloned, and the entrypoint within called.
 
 ### Linux Ubuntu
 
