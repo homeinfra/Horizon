@@ -18,13 +18,13 @@
 
 Param(
   [Parameter(Mandatory=$false)]
-  [string]$Help
+  [switch]$Help,
 
   [Parameter(Mandatory=$false)]
-  [string]$RepoUrl
+  [string]$RepoUrl,
 
   [Parameter(Mandatory=$false)]
-  [string]$RepoRef
+  [string]$RepoRef,
 
   [Parameter(Mandatory=$false)]
   [string]$EntryPoint
@@ -39,7 +39,7 @@ $wslUser = $null
 # Main function where the real execution begins
 function main {
   # Handle help
-  if ($null -ne $Help) {
+  if ($Help) {
     Write-Host "Script that sets up a dockerized environment on Windows, optionally clones a Git repository"
     Write-Host "within WSL2 and runs a command inside that WSL2 environment."
     Write-Host ""
@@ -77,7 +77,7 @@ function main {
 # Checkout the repo defined in the 'constants' section
 function Get-Repo {
   # Find out the user's 'home' directory inside the Ubuntu distro
-  $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -Command "cd ~ && pwd"
+  $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "cd ~ && pwd"
 
   # Check if the script was given RepoUrl as a named argument
   if ($null -ne $RepoUrl) {
@@ -97,12 +97,12 @@ function Get-Repo {
     $repo = "$repos/$repoDir"
 
     # Make sure the full path exists (mkdir directories)
-    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -WorkingDirectory "$homeDir" -Command "mkdir -p $repo"
+    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "mkdir -p $repo"
 
     # Check if the repo already exists
     $isGit = ""
     try {
-      $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -WorkingDirectory "$repo" `
+      $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
               -Command "git rev-parse --is-inside-work-tree"
     } catch {
       $isGit = "false"
@@ -112,12 +112,12 @@ function Get-Repo {
     } else {
       # Not found, we must clone...
       Write-Log -Level 'INFO' -Message "Cloning repository {0}..." -Arguments $repoDir
-      Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -WorkingDirectory "$repo" `
+      Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
               -Command "git clone $RepoUrl $repoBranch ."
 
       # Check again if we have a repo this time
       try {
-        $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -WorkingDirectory "$repo" `
+        $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
                 -Command "git rev-parse --is-inside-work-tree"
       } catch {
         $isGit = "false"
@@ -135,7 +135,7 @@ function Get-Repo {
   # Check if we have an entry point to call
   if ($null -ne $EntryPoint) {
     Write-Log -Level 'INFO' -Message "Calling entry point: `"{0}`"" -Arguments $EntryPoint
-    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -WorkingDirectory "$homeDir" -Command "$EntryPoint"
+    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "$EntryPoint"
   }
 }
 
@@ -152,7 +152,7 @@ function Reset-Path {
   $newPath = $systemPath + ";" + $userPath
 
   # Path delimiter cleanup/sanitize. Remove all leading, traiing or duplicate semicolons
-  $newPath = $newPath -replace ";;+", ""
+  $newPath = $newPath -replace ";;+", ";"
   $newPath = $newPath -replace "^;|;$", ""
 
   # Set the new PATH environment variable for the process
@@ -168,6 +168,20 @@ function Install-Winget {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
       Fix-WinGet
       Reset-Path
+      while ($true) {
+        try {
+          Get-Command winget -ErrorAction Stop >$null
+          # break loop
+          Write-Log -Level 'INFO' -Message "WinGet is now installed"
+          break
+        } catch {
+          # Sleep for 1 second
+          Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
+          Get-ChildItem -Path "C:\Users\Admin\AppData\Local\Microsoft\WindowsApps" |
+            ForEach-Object { Write-Output $_.FullName }
+          Start-Sleep -Seconds 1
+        }
+      }
   }
 }
 
@@ -222,12 +236,12 @@ function Wait-User {
     # It was observed in a few occastion that calling a command on the container would cause an exception.
     # Perhaps a race-condition? Just catch the exception and try again if it happens.
     try {
-      $global:wslUser = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro())" -Command "whoami" # Retrieve the current default user
+      $global:wslUser = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "whoami" # Retrieve the current default user
     } catch {
       $global:wslUser = $noUser # Reset to default on exception
-      Write-Log -Level 'WARNING' -Message "Failure to check for user account on {0}" -Arguments "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'WARNING' -Message "Failure to check for user account on {0}" -Arguments "$(Get-LatestUbuntuDistro)"
     }
-    Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments "$(Get-LatestUbuntuDistro())"
+    Write-Log -Level 'INFO' -Message "Waiting for user to configure his account on {0}" -Arguments "$(Get-LatestUbuntuDistro)"
 
     # If returned user is different than 'root' for 'whoami', then the user was created successfully.
     # Break the infinite loop
@@ -246,20 +260,20 @@ function Wait-User {
 function Install-WSLDistro {
 
   # Check if the distribution is already installed
-  $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro())"
+  $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro)"
   if (-not $WslDistribution) {
-      Write-Log -Level 'INFO' -Message "{0} is not installed. Installing..." -Arguments "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'INFO' -Message "{0} is not installed. Installing..." -Arguments "$(Get-LatestUbuntuDistro)"
 
       # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
       Set-AutoExec
 
-      Write-Log -Level 'INFO' -Message "Installing {0}... You will need to call 'exit' after your user is crated." \
-        -Arguments "$(Get-LatestUbuntuDistro())"
-      wsl --install -d "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'INFO' -Message "Installing {0}... You will need to call 'exit' after your user is crated." `
+        -Arguments "$(Get-LatestUbuntuDistro)"
+      wsl --install -d "$(Get-LatestUbuntuDistro)"
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
       Start-Sleep -Seconds 5
-      Write-Log -Level 'INFO' -Message "Waiting for {0} to be ready" -Arguments "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'INFO' -Message "Waiting for {0} to be ready" -Arguments "$(Get-LatestUbuntuDistro)"
 
       # Wait for WSL to be installed
       $maxRetries = 300 # 300 * 5s = 25 minutes. Timeout waiting for Ubuntu-22.04 to be in a stable state
@@ -268,15 +282,15 @@ function Install-WSLDistro {
 
       while ($currentRetry -lt $maxRetries) {
         # Get attirbutes of Distro
-        $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro())"
+        $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro)"
         if ($null -ne $WslDistribution) {
           $state = $WslDistribution.State
-          Write-Log -Level 'DEBUG' -Message "{0} is in state {1}" -Arguments "$(Get-LatestUbuntuDistro())", $state
+          Write-Log -Level 'DEBUG' -Message "{0} is in state {1}" -Arguments "$(Get-LatestUbuntuDistro)", $state
 
           # Check if the state is "Stopped" or "Running"
           if ($state -eq "Stopped" -or $state -eq "Running") {
-            Write-Log -Level 'INFO' -Message "We are done waiting for {0} to be ready" \
-              -Arguments "$(Get-LatestUbuntuDistro())"
+            Write-Log -Level 'INFO' -Message "We are done waiting for {0} to be ready" `
+              -Arguments "$(Get-LatestUbuntuDistro)"
             break # WSL distro in a stable state. Exit loop.
           }
         }
@@ -287,46 +301,46 @@ function Install-WSLDistro {
       }
 
       # Just a last confirmation that the distro is installed
-      $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro())"
+      $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro)"
       if ($null -eq $WslDistribution) {
-        Write-Log -Level 'ERROR' -Message "Failed to install {0}" -Arguments "$(Get-LatestUbuntuDistro())"
+        Write-Log -Level 'ERROR' -Message "Failed to install {0}" -Arguments "$(Get-LatestUbuntuDistro)"
         exit 1
       }
   } else {
-    Write-Log -Level 'DEBUG' -Message "{0} is installed" -Arguments "$(Get-LatestUbuntuDistro())"
+    Write-Log -Level 'DEBUG' -Message "{0} is installed" -Arguments "$(Get-LatestUbuntuDistro)"
   }
 
   # Check if it's runnnig WSL 2
   if ($WslDistribution.Version -ne 2) {
     Write-Log -Level 'WARNING' -Message "{0} is running WSL version {1}. Attempting an upgrade..." `
-    -Arguments "$(Get-LatestUbuntuDistro())", $WslDistribution.Version
+    -Arguments "$(Get-LatestUbuntuDistro)", $WslDistribution.Version
 
-    Set-WslDistribution "$(Get-LatestUbuntuDistro())" -Version 2
+    Set-WslDistribution "$(Get-LatestUbuntuDistro)" -Version 2
 
-    $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro())"
+    $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro)"
     if ($WslDistribution.Version -ne 2) {
-      Write-Log -Level 'ERROR' -Message "Failed to upgrade {0}" -Arguments "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'ERROR' -Message "Failed to upgrade {0}" -Arguments "$(Get-LatestUbuntuDistro)"
       exit 1
     }
   } else {
     Write-Log -Level 'DEBUG' -Message "{0} is running WSL version {1}" `
-    -Arguments "$(Get-LatestUbuntuDistro())", $WslDistribution.Version
+    -Arguments "$(Get-LatestUbuntuDistro)", $WslDistribution.Version
   }
 
   # Check if Default
   if ($true -ne $WslDistribution.Default) {
     Write-Log -Level 'WARNING' -Message "{0} is NOT the default distro. Attemptiong to change that..." `
-    -Arguments "$(Get-LatestUbuntuDistro())"
+    -Arguments "$(Get-LatestUbuntuDistro)"
 
-    Set-WslDistribution "$(Get-LatestUbuntuDistro())" -Default
+    Set-WslDistribution "$(Get-LatestUbuntuDistro)" -Default
 
-    $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro())"
+    $WslDistribution = Get-WslDistribution "$(Get-LatestUbuntuDistro)"
     if ($true -ne $WslDistribution.Default) {
-      Write-Log -Level 'ERROR' -Message "Failed to set {0} as default." -Arguments "$(Get-LatestUbuntuDistro())"
+      Write-Log -Level 'ERROR' -Message "Failed to set {0} as default." -Arguments "$(Get-LatestUbuntuDistro)"
       exit 1
     }
   } else {
-    Write-Log -Level 'DEBUG' -Message "{0} is the default distro" -Arguments "$(Get-LatestUbuntuDistro())"
+    Write-Log -Level 'DEBUG' -Message "{0} is the default distro" -Arguments "$(Get-LatestUbuntuDistro)"
   }
 }
 
@@ -344,9 +358,13 @@ function Install-WSL2 {
       # Set WSL 2 as the default version
       wsl --set-default-version 2
 
+      Write-Log -Level 'DEBUG' -Message "Call wsl --update"
+
       # WslRegisterDistribution failed with error: 0x800701bc
       # Error: 0x800701bc WSL 2 requires an update to its kernel component. For information please visit https://aka.ms/wsl2kernel
       wsl --update
+
+      Write-Log -Level 'DEBUG' -Message "return from succesfully installing WSL2"
 
       return
     }
@@ -497,7 +515,7 @@ function Fix-WinGet {
 
   # Path where fix downloads should be stored
   $folderName = '.winget-fixes'
-  $dlFolder = Join-Path -Path "$(Get-Root())" -ChildPath $folderName
+  $dlFolder = Join-Path -Path "$(Get-Root)" -ChildPath $folderName
 
   # Ensure the folder exists
   if (-not (Test-Path -Path $dlFolder)) {
@@ -562,11 +580,14 @@ function Fix-WinGet {
     }
   }
 
-  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx))) {
+  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath `
+    "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx"))) {
     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
   }
-  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx)
-  $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
+  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath `
+    "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx")
+  $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) `
+    -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
   if ($results.RestartNeeded -eq $true) {
       Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
       Set-AutoExec
@@ -714,7 +735,7 @@ function Start-Logging {
   Import-Module -Name  $moduleName
 
   # Path where logs should be stored
-  $logDirectory = Join-Path -Path "$(Get-Root())" -ChildPath "\.log"
+  $logDirectory = Join-Path -Path "$(Get-Root)" -ChildPath "\.log"
 
   try {
     # Ensure the log directory exists
@@ -764,34 +785,54 @@ function Start-Logging {
 $distroName = $null
 function Get-LatestUbuntuDistro {
   #Lazy-init $distroName
-  if ($null -eq $distroName) {
-    $distroName = (wsl --list --quiet --all | Where-Object { $_ -match "Ubuntu" } | Sort-Object -Descending)[0]
-    Write-Log -Level 'INFO' -Message "Latest Ubuntu distro: `"$distroName`""
+  if ($null -eq $global:distroName) {
+    # WSL outputs in UTF-16 LE
+    $oldEncoding = [Console]::OutputEncoding
+    [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+    $lines = (wsl --list --online)
+    [Console]::OutputEncoding = $oldEncoding
+
+    # Extract Ubuntu lines
+    $ubuntuLines = $lines | Where-Object { $_ -match "^Ubuntu-" }
+
+    # Extract versions where the key is a parsed version number (for ordering) and the value is the original name
+    $versionMap = @{}
+    $ubuntuLines | ForEach-Object {
+      $versionString = ($_ -split "-| ")[1]
+      $version = New-Object System.Version $versionString
+      $versionMap[$version] = "Ubuntu-$versionString"
+    }
+
+    # Select the first by descending order
+    $global:distroName = $versionMap.GetEnumerator() | Sort-Object Key -Descending |
+      Select-Object -First 1 -ExpandProperty Value
+
+    Write-Log -Level 'INFO' -Message "Latest Ubuntu distro: `"$global:distroName`""
   }
-  return $distro
+  return $global:distroName
 }
 
 # Find a root for this project
 $ROOT = $null
 function Get-Root {
   # Lazy-ioit ROOT
-  if ($null -eq $ROOT) {
+  if ($null -eq $global:ROOT) {
     try {
       Get-Command git -ErrorAction Stop >$null
       $gitTopLevel = git rev-parse --show-toplevel 2>$null
       if ($gitTopLevel) {
-        $ROOT = $gitTopLevel
-        Write-Host "Root detected at `"$ROOT`""
+        $global:ROOT = $gitTopLevel
+        Write-Host "Root detected at `"$global:ROOT`""
       } else {
-        $ROOT = $PSScriptRoot
-        Write-Host "Git root not detected. Assuming `"$ROOT`" as ROOT"
+        $global:ROOT = $PSScriptRoot
+        Write-Host "Git root not detected. Assuming `"$global:ROOT`" as ROOT"
       }
     } catch {
-      $ROOT = $PSScriptRoot
-      Write-Host "Git doesn't seem to be installed. Assuming `"$ROOT`" as ROOT"
+      $global:ROOT = $PSScriptRoot
+      Write-Host "Git doesn't seem to be installed. Assuming `"$global:ROOT`" as ROOT"
     }
   }
-  return $ROOT
+  return $global:ROOT
 }
 
 try {
