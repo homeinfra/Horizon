@@ -38,8 +38,11 @@ function main {
   Wait-User
 
   # Install Docker
+  Write-Log -Level 'DEBUG' -Message "PATH Before Install-WinGet: $env:PATH"
   Install-Winget
+  Write-Log -Level 'DEBUG' -Message "PATH After Install-WinGet: $env:PATH"
   Install-Docker
+  Write-Log -Level 'DEBUG' -Message "PATH After Install-Docker: $env:PATH"
 
   # Checkout repo
   Get-Repo
@@ -99,6 +102,7 @@ function Get-Repo {
 # This is useful so newly installed programs that add themselves to PATH are working within the current process
 # that instaleld them
 function Reset-Path {
+  Write-Log -Level 'DEBUG' -Message "PATH Before reset: $env:PATH"
   # Get the system and user PATH environment variables
   $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
   $userPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
@@ -108,6 +112,7 @@ function Reset-Path {
 
   # Set the new PATH environment variable for the process
   [Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Process)
+  Write-Log -Level 'DEBUG' -Message "PATH After reset: $env:PATH"
 }
 
 # Install WinGet
