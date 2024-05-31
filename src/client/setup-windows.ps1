@@ -266,10 +266,14 @@ function Install-WSL2 {
     if ($null -eq $wslStatus) {
       Write-Log -Level 'WARNING' -Message "WSL is not installed or not running."
     } else {
-      Write-Log -Level 'INFO' -Message "WSL is already installed and running."
+      Write-Log -Level 'INFO' -Message "WSL is already installed and running. Make sure it's up to date"
 
       # Set WSL 2 as the default version
       wsl --set-default-version 2
+
+      # WslRegisterDistribution failed with error: 0x800701bc
+      # Error: 0x800701bc WSL 2 requires an update to its kernel component. For information please visit https://aka.ms/wsl2kernel
+      wsl --update
 
       return
     }
