@@ -20,7 +20,7 @@
 # Constants #
 #############
 $AutoExecName = "jeremfg_setup_windows"
-$distroName = "Ubuntu-22.04"
+$distroName = "Ubuntu-24.04"
 $wslUser = $null
 $repoUrl = "https://github.com/homeinfra/Horizon.git"
 $repoBranch = "main"
