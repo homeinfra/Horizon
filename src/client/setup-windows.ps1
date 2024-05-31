@@ -718,12 +718,18 @@ $ROOT = Get-Root
 ###############
 # Entry Point #
 ###############
-main
+try {
+  main
 
-# Ending log, and make sure everything is flushed before exiting
-Write-Log -Level 'INFO' -Message "Script execution has completed succesfully"
-Wait-Logging
+  # Ending log, and make sure everything is flushed before exiting
+  Write-Log -Level 'INFO' -Message "Script execution has completed succesfully"
+  Wait-Logging
 
-# Pause the script here before closing, so the user can review what happened
-Write-Host "Press Enter to exit.."
-Read-Host
+  # Pause the script here before closing, so the user can review what happened
+  Write-Host "Press Enter to exit.."
+  Read-Host # Pause before the window closes
+} catch {
+  Write-Host "An error occurred: $($_.Exception.Message)"
+  Write-Host "Press Enter to exit.."
+  Read-Host # Pause before the window closes
+}
