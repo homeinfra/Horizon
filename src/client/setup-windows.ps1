@@ -109,6 +109,7 @@ function Install-Winget {
   } catch {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
       Fix-WinGet
+      Reset-Path
   }
 }
 

@@ -9,7 +9,7 @@ The client environment is currently supported for the following:
 
 ### Windows 10 (or superior)
 
-Open a command prompt window (CND) and execute the following command:
+Open a command prompt window (CMD) and execute the following command:
 
 ```bat
 bitsadmin /transfer setup ^
