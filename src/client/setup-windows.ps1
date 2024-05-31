@@ -108,7 +108,11 @@ function Install-Winget {
     Get-Command winget -ErrorAction Stop >$null
   } catch {
       Write-Host "WinGet doesn't seem to be installed. Installing..."
+      Assert-Admin "to install WinGet"
       Fix-WinGet
+      Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
+      Set-AutoExec
+      Restart-Host
   }
 }
 
@@ -463,12 +467,12 @@ function Fix-WinGet {
   $vcLibsUwp = @{
     fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
     url      = 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx'
-    hash     = '9BFDE6CFCC530EF073AB4BC9C4817575F63BE1251DD75AAA58CB89299697A569'
+    hash     = 'B56A9101F706F9D95F815F5B7FA6EFBAC972E86573D378B96A07CFF5540C5961'
   }
   $uiLibsUwp = @{
-    fileName = 'Microsoft.UI.Xaml.2.7.zip'
-    url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.7.0'
-    hash     = '422FD24B231E87A842C4DAEABC6A335112E0D35B86FAC91F5CE7CF327E36A591'
+    fileName = 'Microsoft.UI.Xaml.2.8.zip'
+    url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6'
+    hash     = '6B62BD3C277F55518C3738121B77585AC5E171C154936EC58D87268BBAE91736'
   }
   $dependencies = @($desktopAppInstaller, $vcLibsUwp, $uiLibsUwp)
   Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
@@ -484,15 +488,16 @@ function Fix-WinGet {
         throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
       }
       if (-not ($dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
-        throw [System.Activities.VersionMismatchException]::new('Dependency hash does not match the downloaded file')
+        throw [System.InvalidOperationException]::new("Dependency hash does not match the downloaded file. " +
+        "Received: `"$($(Get-FileHash $dependency.file).Hash)`"")
       }
     }
   }
 
-  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx))) {
-    Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.7') -Force
+  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx))) {
+    Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
   }
-  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.7\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx)
+  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx)
   Add-AppxPackage -Path $($desktopAppInstaller.file) -DependencyPath $($vcLibsUwp.file), $($uiLibsUwp.file)
 }
 
@@ -679,7 +684,7 @@ function Get-Root {
   try {
     Get-Command git -ErrorAction Stop >$null
   } catch {
-      Write-Host "Git doesn't seem to be installed. Assuming: \"$PSScriptRoot\" as ROOT"
+      Write-Host "Git doesn't seem to be installed. Assuming: `"$PSScriptRoot`" as ROOT"
       return $PSScriptRoot
   }
 
@@ -688,7 +693,7 @@ function Get-Root {
       Write-Host "Root detected at: $gitTopLevel"
       return $gitTopLevel
   } else {
-      Write-Host "Git root not detected. Assuming: \"$PSScriptRoot\" as ROOT"
+      Write-Host "Git root not detected. Assuming: `"$PSScriptRoot`" as ROOT"
       return $PSScriptRoot
   }
 }
