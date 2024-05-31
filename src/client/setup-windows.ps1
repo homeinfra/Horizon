@@ -107,7 +107,7 @@ function Install-Winget {
   try {
     Get-Command winget -ErrorAction Stop >$null
   } catch {
-      Write-Host "WinGet doesn't seem to be installed. Installing..."
+      Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
       Fix-WinGet
   }
 }
@@ -194,7 +194,8 @@ function Install-WSLDistro {
       # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
       Set-AutoExec
 
-      wsl --install -q -d $distroName
+      Write-Log -Level 'INFO' -Message "Installing {0}... You will need to call 'exit' after your user is crated." -Arguments $distroName
+      wsl --install -d $distroName
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
       Start-Sleep -Seconds 5
@@ -431,9 +432,10 @@ function Reset-AutoExec {
 
 # https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
 function Fix-WinGet {
-  $folderName = 'winget-fixes'
+  Assert-Admin "to fix WinGet"
 
   # Path where fix downloads should be stored
+  $folderName = 'winget-fixes'
   $dlFolder = Join-Path -Path $ROOT -ChildPath $folderName
 
   # Ensure the folder exists
@@ -467,7 +469,7 @@ function Fix-WinGet {
   $desktopAppLicense = @{
     fileName = 'wingetlicense.xml'
     url      = $(Get-LicenseUrl)
-    hash     = null
+    hash     = $null
   }
   $vcLibsUwp = @{
     fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
@@ -479,7 +481,7 @@ function Fix-WinGet {
     url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6'
     hash     = '6B62BD3C277F55518C3738121B77585AC5E171C154936EC58D87268BBAE91736'
   }
-  $dependencies = @($desktopAppInstaller, $vcLibsUwp, $uiLibsUwp)
+  $dependencies = @($desktopAppInstaller, $desktopAppLicense, $vcLibsUwp, $uiLibsUwp)
   Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
   foreach ($dependency in $dependencies) {
     $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
@@ -503,7 +505,12 @@ function Fix-WinGet {
     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
   }
   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx)
-  Add-AppxProvisionedPackage -PackagePath $($desktopAppInstaller.file) -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
+  $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
+  if ($results.RestartNeeded -eq $true) {
+      Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
+      Set-AutoExec
+      Restart-Host
+    }
 }
 
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
