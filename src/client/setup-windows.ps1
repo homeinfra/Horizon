@@ -38,6 +38,7 @@ function main {
   Wait-User
 
   # Install Docker
+  Install-Winget
   Install-Docker
 
   # Checkout repo
@@ -99,6 +100,16 @@ function Get-Repo {
 # that instaleld them
 function Reset-Path {
   [Environment]::SetEnvironmentVariable("PATH", [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine), [System.EnvironmentVariableTarget]::Process)
+}
+
+# Install WinGet
+function Install-Winget {
+  try {
+    Get-Command winget -ErrorAction Stop >$null
+  } catch {
+      Write-Host "WinGet doesn't seem to be installed. Installing..."
+      Fix-WinGet
+  }
 }
 
 # Install DockerDesktop
@@ -665,15 +676,21 @@ function Start-Logging {
 
 # Find a root for this project
 function Get-Root {
-  $gitTopLevel = git rev-parse --show-toplevel 2>$null
+  try {
+    Get-Command git -ErrorAction Stop >$null
+  } catch {
+      Write-Host "Git doesn't seem to be installed. Assuming: \"$PSScriptRoot\" as ROOT"
+      return $PSScriptRoot
+  }
 
-    if ($gitTopLevel) {
-        Write-Host "Root detected at: $gitTopLevel"
-        return $gitTopLevel
-    } else {
-        Write-Host "Git root not detected or git not installed. Assuming: $PSScriptRoot"
-        return $PSScriptRoot
-    }
+  $gitTopLevel = git rev-parse --show-toplevel 2>$null
+  if ($gitTopLevel) {
+      Write-Host "Root detected at: $gitTopLevel"
+      return $gitTopLevel
+  } else {
+      Write-Host "Git root not detected. Assuming: \"$PSScriptRoot\" as ROOT"
+      return $PSScriptRoot
+  }
 }
 
 ##################
