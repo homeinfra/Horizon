@@ -99,7 +99,15 @@ function Get-Repo {
 # This is useful so newly installed programs that add themselves to PATH are working within the current process
 # that instaleld them
 function Reset-Path {
-  [Environment]::SetEnvironmentVariable("PATH", [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine), [System.EnvironmentVariableTarget]::Process)
+  # Get the system and user PATH environment variables
+  $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
+  $userPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
+
+  # Concatenate the system and user PATH environment variables
+  $newPath = $systemPath + ";" + $userPath
+
+  # Set the new PATH environment variable for the process
+  [Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Process)
 }
 
 # Install WinGet
