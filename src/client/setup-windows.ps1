@@ -194,7 +194,7 @@ function Install-WSLDistro {
       # There could be a restart during Ubuntu installation. Make sure we will resume if it happens
       Set-AutoExec
 
-      wsl --install -d $distroName
+      wsl --install -q -d $distroName
 
       # Just a little buffer to avoid possible race condition between distro install and bootiung up.
       Start-Sleep -Seconds 5
@@ -449,6 +449,10 @@ function Fix-WinGet {
     ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
   }
 
+  function Get-LicenseUrl {
+    ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object {$_.name -like '*license*.xml'}).browser_download_url
+  }
+
   function Get-LatestHash {
     $shaUrl = ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt$' }).browser_download_url
     $shaFile = Join-Path -Path $dlFolder -ChildPath 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt'
@@ -459,6 +463,11 @@ function Fix-WinGet {
     fileName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
     url      = $(Get-LatestUrl)
     hash     = $(Get-LatestHash)
+  }
+  $desktopAppLicense = @{
+    fileName = 'wingetlicense.xml'
+    url      = $(Get-LicenseUrl)
+    hash     = null
   }
   $vcLibsUwp = @{
     fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
@@ -483,7 +492,7 @@ function Fix-WinGet {
         #Pass the exception as an inner exception
         throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
       }
-      if (-not ($dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
+      if ($dependency.hash -ne $null -and ($dependency.hash -ne $(Get-FileHash $dependency.file).Hash)) {
         throw [System.InvalidOperationException]::new("Dependency hash does not match the downloaded file. " +
         "Received: `"$($(Get-FileHash $dependency.file).Hash)`"")
       }
@@ -494,10 +503,7 @@ function Fix-WinGet {
     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
   }
   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath \Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx)
-  Add-AppxPackage -Path $($desktopAppInstaller.file) -DependencyPath $($vcLibsUwp.file), $($uiLibsUwp.file)
-  # Try to fix issue that I can fix manually with a reinstall
-  Remove-AppxPackage -Package Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -AllUsers
-  Add-AppxPackage -Path $($desktopAppInstaller.file)
+  Add-AppxProvisionedPackage -PackagePath $($desktopAppInstaller.file) -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
 }
 
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
