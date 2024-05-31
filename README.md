@@ -14,7 +14,8 @@ Open a command prompt window (CMD) and execute the following command:
 ```bat
 bitsadmin /transfer setup ^
 https://raw.githubusercontent.com/homeinfra/Horizon/feature/docker/src/client/setup-windows.bat ^
-%cd%\setup-windows.bat & setup-windows.bat
+%cd%\setup-windows.bat & setup-windows.bat -RepoUrl "https://github.com/homeinfra/Horizon.git" ^
+-RepoRef "feature/docker" -EntryPoint "echo 'Welcome to Horizon!'"
 ```
 
 This will download and execute [this script](src/client/setup-windows.bat). This script is designed to run on a fresh
