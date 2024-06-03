@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: MIT
 #
 # This script is used to set up the local client environment on Windows. It configures the following:
-# 1. WSL2 (Windows Subsystem for Linux)
+# 1. WSL2 (Windows Subsystem for Linux), with the latest LTS release of Ubuntu
 # 2. Docker Desktop
-# 3. Under WSL environment, checkout this repo
+# 3. Under WSL environment, optionally checkout the given repo
+# 4. Under WSL environment, optionally invoke the entrypoint given
 #
 # Usage:
 # It is recommended to run C:\> setup-windows.bat
 #
 # Todo:
-# - Generalize this script by making the repo to be checked out a parameter/argument
 # - Turn this script (and accompanying .bat file) into a Powershell module in it's own git repo
-# - Make sure that the automatic execution after reboot uses the same arguments that were orginally passed
+# - Make sure that the automatic execution after reboot uses the same arguments that were orginally passed (untested)
 #
 # NOTE: Designed to run on a fresh Windows 10 install or later
 
@@ -61,11 +61,8 @@ function main {
   Wait-User
 
   # Install Docker
-  Write-Log -Level 'DEBUG' -Message "PATH Before Install-WinGet: $env:PATH"
   Install-Winget
-  Write-Log -Level 'DEBUG' -Message "PATH After Install-WinGet: $env:PATH"
   Install-Docker
-  Write-Log -Level 'DEBUG' -Message "PATH After Install-Docker: $env:PATH"
 
   # Checkout repo
   Get-Repo
@@ -76,21 +73,24 @@ function main {
 
 # Checkout the repo defined in the 'constants' section
 function Get-Repo {
+  # This will probably cause an infinite loop with Reset-AutoExec later on
+  Assert-NotAdmin "to Invoke WSL commands"
+
   # Find out the user's 'home' directory inside the Ubuntu distro
   $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "cd ~ && pwd"
 
   # Check if the script was given RepoUrl as a named argument
-  if ($null -ne $RepoUrl) {
+  if ($null -ne $global:RepoUrl) {
     # Check if the script was given RepoRef as a named argument
-    if ($null -ne $RepoRef) {
-      $repoBranch = "--branch $RepoRef"
+    if ($null -ne $global:RepoRef) {
+      $repoBranch = "--branch $global:RepoRef"
     }
     else {
       $repoBranch = ""
     }
 
     # Get directory name from URL
-    $repoDir = [System.IO.Path]::GetFileNameWithoutExtension($RepoUrl.Split("/")[-1])
+    $repoDir = [System.IO.Path]::GetFileNameWithoutExtension($global:RepoUrl.Split("/")[-1])
 
     # Directory where the git repo will be cloned
     $repos = "$homeDir/repos"  # All repositorys are cloned inside "~/repos"
@@ -113,7 +113,7 @@ function Get-Repo {
       # Not found, we must clone...
       Write-Log -Level 'INFO' -Message "Cloning repository {0}..." -Arguments $repoDir
       Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
-              -Command "git clone $RepoUrl $repoBranch ."
+              -Command "git clone $global:RepoUrl $repoBranch ."
 
       # Check again if we have a repo this time
       try {
@@ -124,26 +124,25 @@ function Get-Repo {
       }
       if ("true" -eq $isGit) {
         Write-Log -Level 'INFO' -Message "Repository {0} was cloned succesfully" -Arguments $repoDir
-        $homeDir = $repoDir
+        $homeDir = $repo
       } else {
-        Write-Log -Level 'ERROR' -Message "Failed to clone repository" -Arguments $repoDir
+        Write-Log -Level 'ERROR' -Message "Failed to clone {0}." -Arguments $repoDir
         exit 1
       }
     }
   }
 
   # Check if we have an entry point to call
-  if ($null -ne $EntryPoint) {
-    Write-Log -Level 'INFO' -Message "Calling entry point: `"{0}`"" -Arguments $EntryPoint
-    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "$EntryPoint"
+  if ($null -ne $global:EntryPoint) {
+    Write-Log -Level 'INFO' -Message "Calling entry point: `"{0}`"" -Arguments $global:EntryPoint
+    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "$global:EntryPoint"
   }
 }
 
 # Reset the PATH environment variable in the current process using the one from the OS.
 # This is useful so newly installed programs that add themselves to PATH are working within the current process
-# that instaleld them
+# that installed them
 function Reset-Path {
-  Write-Log -Level 'DEBUG' -Message "PATH Before reset: $env:PATH"
   # Get the system and user PATH environment variables
   $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
   $userPath = [System.Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
@@ -151,13 +150,12 @@ function Reset-Path {
   # Concatenate the system and user PATH environment variables
   $newPath = $systemPath + ";" + $userPath
 
-  # Path delimiter cleanup/sanitize. Remove all leading, traiing or duplicate semicolons
+  # Path delimiter cleanup/sanitize. Remove all leading, trailing or duplicate semicolons
   $newPath = $newPath -replace ";;+", ";"
   $newPath = $newPath -replace "^;|;$", ""
 
   # Set the new PATH environment variable for the process
   [Environment]::SetEnvironmentVariable("PATH", $newPath, [System.EnvironmentVariableTarget]::Process)
-  Write-Log -Level 'DEBUG' -Message "PATH After reset: $env:PATH"
 }
 
 # Install WinGet
@@ -168,6 +166,7 @@ function Install-Winget {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
       Fix-WinGet
       Reset-Path
+      # For some reason, we reach this point before winget.exe is written to disk. Wait for it...
       while ($true) {
         try {
           Get-Command winget -ErrorAction Stop >$null
@@ -176,9 +175,10 @@ function Install-Winget {
           break
         } catch {
           # Sleep for 1 second
-          Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
-          Get-ChildItem -Path "C:\Users\Admin\AppData\Local\Microsoft\WindowsApps" |
+          Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\WindowsApps" |
             ForEach-Object { Write-Output $_.FullName }
+          Write-Log -Level 'DEBUG' -Message "PATH was: $env:PATH"
+          Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
           Start-Sleep -Seconds 1
         }
       }
@@ -462,7 +462,7 @@ function Set-AutoExec {
     try {
       # Define the action to run your script on startup
       $Action = New-ScheduledTaskAction -Execute 'Powershell.exe' `
-      -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`""
+      -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$($global:MyInvocation.MyCommand.Path)`" $global:args"
 
       # Define the trigger for the task (at startup)
       $Trigger = New-ScheduledTaskTrigger -AtLogOn
