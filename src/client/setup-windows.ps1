@@ -27,6 +27,9 @@ Param(
   [string]$RepoRef,
 
   [Parameter(Mandatory=$false)]
+  [string]$RepoDir,
+
+  [Parameter(Mandatory=$false)]
   [string]$EntryPoint
 )
 
@@ -46,6 +49,7 @@ function main {
     Write-Host "Usage: setup-windows.ps1 [-RepoUrl <url>] [-RepoRef <ref>] [-EntryPoint <command>]"
     Write-Host "  -RepoUrl:    URL of the repository to clone"
     Write-Host "  -RepoRef:    Branch or tag to checkout"
+    Write-Host "  -RepoDir:    Directory to clone the repository into, within the WSL environment"
     Write-Host "  -EntryPoint: Command to run once the WSL2 environment is up and running"
     exit 0
   }
@@ -55,15 +59,13 @@ function main {
   Install-Dependencies -moduleName 'Wsl'
   Start-Logging
 
-  # Dependencies
-  Install-Winget
-
   # Install WSL
   Install-WSL2
   Install-WSLDistro
   Wait-User
 
   # Install Docker
+  Install-Winget
   Install-Docker
 
   # Checkout repo
@@ -75,70 +77,53 @@ function main {
 
 # Checkout the repo defined in the 'constants' section
 function Get-Repo {
+
+  if ($null -eq $global:RepoUrl -or $global:RepoUrl -eq "") {
+    Write-Log -Level 'INFO' -Message "No repository URL provided. Skipping..."
+    return
+  }
+
   # This will probably cause an infinite loop with Reset-AutoExec later on
   Assert-NotAdmin "to Invoke WSL commands"
 
-  # Find out the user's 'home' directory inside the Ubuntu distro
-  $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "cd ~ && pwd"
-
-  # Check if the script was given RepoUrl as a named argument
-  if ($null -ne $global:RepoUrl) {
-    # Check if the script was given RepoRef as a named argument
-    if ($null -ne $global:RepoRef) {
-      $repoBranch = "--branch $global:RepoRef"
-    }
-    else {
-      $repoBranch = ""
-    }
-
-    # Get directory name from URL
-    $repoDir = [System.IO.Path]::GetFileNameWithoutExtension($global:RepoUrl.Split("/")[-1])
-
-    # Directory where the git repo will be cloned
-    $repos = "$homeDir/repos"  # All repositorys are cloned inside "~/repos"
-    $repo = "$repos/$repoDir"
-
-    # Make sure the full path exists (mkdir directories)
-    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "mkdir -p $repo"
-
-    # Check if the repo already exists
-    $isGit = ""
-    try {
-      $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
-              -Command "git rev-parse --is-inside-work-tree"
-    } catch {
-      $isGit = "false"
-    }
-    if ("true" -eq $isGit) {
-      Write-Log -Level 'DEBUG' -Message "Repository {0} is already cloned" -Arguments $repoDir
-    } else {
-      # Not found, we must clone...
-      Write-Log -Level 'INFO' -Message "Cloning repository {0}..." -Arguments $repoDir
-      Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
-              -Command "git clone $global:RepoUrl $repoBranch ."
-
-      # Check again if we have a repo this time
-      try {
-        $isGit = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$repo" `
-                -Command "git rev-parse --is-inside-work-tree"
-      } catch {
-        $isGit = "false"
-      }
-      if ("true" -eq $isGit) {
-        Write-Log -Level 'INFO' -Message "Repository {0} was cloned succesfully" -Arguments $repoDir
-        $homeDir = $repo
-      } else {
-        Write-Log -Level 'ERROR' -Message "Failed to clone {0}." -Arguments $repoDir
-        exit 1
-      }
+  if ($null -eq $global:RepoDir -or $global:RepoDir -eq "") {
+    Write-Log -Level 'INFO' -Message "No git directory provided. Using default..."
+    # Find out the user's 'home' directory inside the Ubuntu distro
+    Write-Log -Level 'DEBUG' -Message "Finding the user's home directory in WSL"
+    $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "cd ~ && pwd"
+    $global:RepoDir = "$homeDir/repos"
+    Write-Log -Level 'DEBUG' -Message "Using $global:RepoDir as the default git directory"
+  } else {
+    # Replace any instance of ~, $HOME or ${HOME} with the actual home directory
+    if ($global:RepoDir -match '^~|^\$HOME|^\${HOME}') {
+      Write-Log -Level 'DEBUG' -Message "Expanding $global:RepoDir to the user's home directory"
+      $homeDir = Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "cd ~ && pwd"
+      $global:RepoDir = $global:RepoDir -replace '^~|^\$HOME|^\${HOME}', $homeDir
     }
   }
 
-  # Check if we have an entry point to call
-  if ($null -ne $global:EntryPoint) {
-    Write-Log -Level 'INFO' -Message "Calling entry point: `"{0}`"" -Arguments $global:EntryPoint
-    Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$homeDir" -Command "$global:EntryPoint"
+  # Make sure RepoDir is created
+  Write-Log -Level 'DEBUG' -Message "Creating $global:RepoDir"
+  Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -Command "mkdir -p $global:RepoDir"
+
+  # Prepare the setup_git command
+  $linuxCmd = "wget -qO- 'https://raw.githubusercontent.com/jeremfg/setup/refs/heads/main/src/setup_git' | bash -s -- "
+  $linuxCmd += "$global:RepoUrl"
+
+  if ($null -ne $global:RepoRef -and $global:RepoRef -ne "") {
+    $linuxCmd += " $global:RepoRef"
   }
+
+  if ($null -ne $global:EntryPoint -and $global:EntryPoint -ne "") {
+    $linuxCmd += " -- $global:EntryPoint"
+  }
+
+  # Call the setup_git script
+  Write-Log -Level 'INFO' -Message "Cloning repository into $global:RepoDir"
+  Invoke-WslCommand -Name "$(Get-LatestUbuntuDistro)" -WorkingDirectory "$global:RepoDir" `
+    -Command "$linuxCmd"
+  
+  Write-Log -Level 'INFO' -Message "Setup completed successfully"
 }
 
 # Reset the PATH environment variable in the current process using the one from the OS.
@@ -167,31 +152,14 @@ function Install-Winget {
   } catch {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
       Assert-Admin "to install WinGet"
-      Invoke-RestMethod "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1" | Invoke-Expression
+      Invoke-RestMethod "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1" | `
+        Invoke-Expression -ArgumentList '-NoExit'
       try {
         Get-Command winget -ErrorAction Stop >$null
       } catch {
         Write-Log -Level 'ERROR' -Message "WinGet failed to install"
         exit 1
       }
-      # Fix-WinGet
-      # Reset-Path
-      # # For some reason, we reach this point before winget.exe is written to disk. Wait for it...
-      # while ($true) {
-      #   try {
-      #     Get-Command winget -ErrorAction Stop >$null
-      #     # break loop
-      #     Write-Log -Level 'INFO' -Message "WinGet is now installed"
-      #     break
-      #   } catch {
-      #     # Sleep for 1 second
-      #     Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\WindowsApps" |
-      #       ForEach-Object { Write-Output $_.FullName }
-      #     Write-Log -Level 'DEBUG' -Message "PATH was: $env:PATH"
-      #     Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
-      #     Start-Sleep -Seconds 1
-      #   }
-      # }
   }
 }
 
@@ -519,92 +487,6 @@ function Reset-AutoExec {
   }
 }
 
-# # https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
-# function Fix-WinGet {
-#   Assert-Admin "to fix WinGet"
-
-#   # Path where fix downloads should be stored
-#   $folderName = '.winget-fixes'
-#   $dlFolder = Join-Path -Path "$(Get-Root)" -ChildPath $folderName
-
-#   # Ensure the folder exists
-#   if (-not (Test-Path -Path $dlFolder)) {
-#     $null = New-Item -Path $dlFolder -ItemType Directory
-#   }
-
-#   $apiLatestUrl = if ($Prerelease) { 'https://api.github.com/repos/microsoft/winget-cli/releases?per_page=1' } else { 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' }
-#   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-#   $WebClient = New-Object System.Net.WebClient
-
-#   function Get-LatestUrl {
-#     ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
-#   }
-
-#   function Get-LicenseUrl {
-#     ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object {$_.name -like '*license*.xml'}).browser_download_url
-#   }
-
-#   function Get-LatestHash {
-#     $shaUrl = ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt$' }).browser_download_url
-#     $shaFile = Join-Path -Path $dlFolder -ChildPath 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt'
-#     $WebClient.DownloadFile($shaUrl, $shaFile)
-#     Get-Content $shaFile
-#   }
-#   $desktopAppInstaller = @{
-#     fileName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
-#     url      = $(Get-LatestUrl)
-#     hash     = $(Get-LatestHash)
-#   }
-#   $desktopAppLicense = @{
-#     fileName = 'wingetlicense.xml'
-#     url      = $(Get-LicenseUrl)
-#     hash     = $null
-#   }
-#   $vcLibsUwp = @{
-#     fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
-#     url      = 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx'
-#     hash     = 'B56A9101F706F9D95F815F5B7FA6EFBAC972E86573D378B96A07CFF5540C5961'
-#   }
-#   $uiLibsUwp = @{
-#     fileName = 'Microsoft.UI.Xaml.2.8.zip'
-#     url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6'
-#     hash     = '6B62BD3C277F55518C3738121B77585AC5E171C154936EC58D87268BBAE91736'
-#   }
-#   $dependencies = @($desktopAppInstaller, $desktopAppLicense, $vcLibsUwp, $uiLibsUwp)
-#   Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
-#   foreach ($dependency in $dependencies) {
-#     $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
-#     if (-Not ((Test-Path -Path $dependency.file -PathType Leaf) -And $dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
-#       Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $dependency.url
-#       try {
-#         $WebClient.DownloadFile($dependency.url, $dependency.file)
-#       }
-#       catch {
-#         #Pass the exception as an inner exception
-#         throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
-#       }
-#       if ($dependency.hash -ne $null -and ($dependency.hash -ne $(Get-FileHash $dependency.file).Hash)) {
-#         throw [System.InvalidOperationException]::new("Dependency hash does not match the downloaded file. " +
-#         "Received: `"$($(Get-FileHash $dependency.file).Hash)`"")
-#       }
-#     }
-#   }
-
-#   if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath `
-#     "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx"))) {
-#     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
-#   }
-#   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath `
-#     "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx")
-#   $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) `
-#     -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
-#   if ($results.RestartNeeded -eq $true) {
-#       Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
-#       Set-AutoExec
-#       Restart-Host
-#     }
-# }
-
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
 function Assert-NotAdmin {
   param (
@@ -668,9 +550,6 @@ function Install-Using-Winget {
   $packageExists = (winget list --accept-source-agreements) -match "$packageName"
   if ($false -eq $packageExists) {
     Write-Log -Level 'INFO' -Message "Installing {0}..." -Arguments $packageName
-
-    # It could be that WinGet is broken
-    Fix-WinGet
 
     winget install --accept-package-agreements --accept-source-agreements -e --id $packageName --Silent
 
