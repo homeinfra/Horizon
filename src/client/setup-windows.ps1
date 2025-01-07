@@ -166,6 +166,7 @@ function Install-Winget {
     Get-Command winget -ErrorAction Stop >$null
   } catch {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
+      Assert-Admin "to install WinGet"
       Invoke-RestMethod "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1" | Invoke-Expression
       try {
         Get-Command winget -ErrorAction Stop >$null
