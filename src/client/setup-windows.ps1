@@ -55,13 +55,15 @@ function main {
   Install-Dependencies -moduleName 'Wsl'
   Start-Logging
 
+  # Dependencies
+  Install-Winget
+
   # Install WSL
   Install-WSL2
   Install-WSLDistro
   Wait-User
 
   # Install Docker
-  Install-Winget
   Install-Docker
 
   # Checkout repo
@@ -164,24 +166,31 @@ function Install-Winget {
     Get-Command winget -ErrorAction Stop >$null
   } catch {
       Write-Log -Level 'INFO' -Message "WinGet doesn't seem to be installed. Installing..."
-      Fix-WinGet
-      Reset-Path
-      # For some reason, we reach this point before winget.exe is written to disk. Wait for it...
-      while ($true) {
-        try {
-          Get-Command winget -ErrorAction Stop >$null
-          # break loop
-          Write-Log -Level 'INFO' -Message "WinGet is now installed"
-          break
-        } catch {
-          # Sleep for 1 second
-          Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\WindowsApps" |
-            ForEach-Object { Write-Output $_.FullName }
-          Write-Log -Level 'DEBUG' -Message "PATH was: $env:PATH"
-          Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
-          Start-Sleep -Seconds 1
-        }
+      Invoke-RestMethod "https://github.com/asheroto/winget-install/releases/latest/download/winget-install.ps1" | Invoke-Expression
+      try {
+        Get-Command winget -ErrorAction Stop >$null
+      } catch {
+        Write-Log -Level 'ERROR' -Message "WinGet failed to install"
+        exit 1
       }
+      # Fix-WinGet
+      # Reset-Path
+      # # For some reason, we reach this point before winget.exe is written to disk. Wait for it...
+      # while ($true) {
+      #   try {
+      #     Get-Command winget -ErrorAction Stop >$null
+      #     # break loop
+      #     Write-Log -Level 'INFO' -Message "WinGet is now installed"
+      #     break
+      #   } catch {
+      #     # Sleep for 1 second
+      #     Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\WindowsApps" |
+      #       ForEach-Object { Write-Output $_.FullName }
+      #     Write-Log -Level 'DEBUG' -Message "PATH was: $env:PATH"
+      #     Write-Log -Level 'INFO' -Message "Waiting for WinGet to be installed"
+      #     Start-Sleep -Seconds 1
+      #   }
+      # }
   }
 }
 
@@ -509,91 +518,91 @@ function Reset-AutoExec {
   }
 }
 
-# https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
-function Fix-WinGet {
-  Assert-Admin "to fix WinGet"
+# # https://github.com/microsoft/winget-cli/issues/3068#issuecomment-1763402494
+# function Fix-WinGet {
+#   Assert-Admin "to fix WinGet"
 
-  # Path where fix downloads should be stored
-  $folderName = '.winget-fixes'
-  $dlFolder = Join-Path -Path "$(Get-Root)" -ChildPath $folderName
+#   # Path where fix downloads should be stored
+#   $folderName = '.winget-fixes'
+#   $dlFolder = Join-Path -Path "$(Get-Root)" -ChildPath $folderName
 
-  # Ensure the folder exists
-  if (-not (Test-Path -Path $dlFolder)) {
-    $null = New-Item -Path $dlFolder -ItemType Directory
-  }
+#   # Ensure the folder exists
+#   if (-not (Test-Path -Path $dlFolder)) {
+#     $null = New-Item -Path $dlFolder -ItemType Directory
+#   }
 
-  $apiLatestUrl = if ($Prerelease) { 'https://api.github.com/repos/microsoft/winget-cli/releases?per_page=1' } else { 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' }
-  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  $WebClient = New-Object System.Net.WebClient
+#   $apiLatestUrl = if ($Prerelease) { 'https://api.github.com/repos/microsoft/winget-cli/releases?per_page=1' } else { 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' }
+#   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+#   $WebClient = New-Object System.Net.WebClient
 
-  function Get-LatestUrl {
-    ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
-  }
+#   function Get-LatestUrl {
+#     ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle$' }).browser_download_url
+#   }
 
-  function Get-LicenseUrl {
-    ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object {$_.name -like '*license*.xml'}).browser_download_url
-  }
+#   function Get-LicenseUrl {
+#     ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object {$_.name -like '*license*.xml'}).browser_download_url
+#   }
 
-  function Get-LatestHash {
-    $shaUrl = ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt$' }).browser_download_url
-    $shaFile = Join-Path -Path $dlFolder -ChildPath 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt'
-    $WebClient.DownloadFile($shaUrl, $shaFile)
-    Get-Content $shaFile
-  }
-  $desktopAppInstaller = @{
-    fileName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
-    url      = $(Get-LatestUrl)
-    hash     = $(Get-LatestHash)
-  }
-  $desktopAppLicense = @{
-    fileName = 'wingetlicense.xml'
-    url      = $(Get-LicenseUrl)
-    hash     = $null
-  }
-  $vcLibsUwp = @{
-    fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
-    url      = 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx'
-    hash     = 'B56A9101F706F9D95F815F5B7FA6EFBAC972E86573D378B96A07CFF5540C5961'
-  }
-  $uiLibsUwp = @{
-    fileName = 'Microsoft.UI.Xaml.2.8.zip'
-    url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6'
-    hash     = '6B62BD3C277F55518C3738121B77585AC5E171C154936EC58D87268BBAE91736'
-  }
-  $dependencies = @($desktopAppInstaller, $desktopAppLicense, $vcLibsUwp, $uiLibsUwp)
-  Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
-  foreach ($dependency in $dependencies) {
-    $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
-    if (-Not ((Test-Path -Path $dependency.file -PathType Leaf) -And $dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
-      Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $dependency.url
-      try {
-        $WebClient.DownloadFile($dependency.url, $dependency.file)
-      }
-      catch {
-        #Pass the exception as an inner exception
-        throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
-      }
-      if ($dependency.hash -ne $null -and ($dependency.hash -ne $(Get-FileHash $dependency.file).Hash)) {
-        throw [System.InvalidOperationException]::new("Dependency hash does not match the downloaded file. " +
-        "Received: `"$($(Get-FileHash $dependency.file).Hash)`"")
-      }
-    }
-  }
+#   function Get-LatestHash {
+#     $shaUrl = ((Invoke-WebRequest $apiLatestUrl -UseBasicParsing | ConvertFrom-Json).assets | Where-Object { $_.name -match '^Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt$' }).browser_download_url
+#     $shaFile = Join-Path -Path $dlFolder -ChildPath 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.txt'
+#     $WebClient.DownloadFile($shaUrl, $shaFile)
+#     Get-Content $shaFile
+#   }
+#   $desktopAppInstaller = @{
+#     fileName = 'Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle'
+#     url      = $(Get-LatestUrl)
+#     hash     = $(Get-LatestHash)
+#   }
+#   $desktopAppLicense = @{
+#     fileName = 'wingetlicense.xml'
+#     url      = $(Get-LicenseUrl)
+#     hash     = $null
+#   }
+#   $vcLibsUwp = @{
+#     fileName = 'Microsoft.VCLibs.x64.14.00.Desktop.appx'
+#     url      = 'https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx'
+#     hash     = 'B56A9101F706F9D95F815F5B7FA6EFBAC972E86573D378B96A07CFF5540C5961'
+#   }
+#   $uiLibsUwp = @{
+#     fileName = 'Microsoft.UI.Xaml.2.8.zip'
+#     url      = 'https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.6'
+#     hash     = '6B62BD3C277F55518C3738121B77585AC5E171C154936EC58D87268BBAE91736'
+#   }
+#   $dependencies = @($desktopAppInstaller, $desktopAppLicense, $vcLibsUwp, $uiLibsUwp)
+#   Write-Log -Level 'INFO' -Message "Checking WinGet dependencies"
+#   foreach ($dependency in $dependencies) {
+#     $dependency.file = Join-Path -Path $dlFolder -ChildPath $dependency.fileName
+#     if (-Not ((Test-Path -Path $dependency.file -PathType Leaf) -And $dependency.hash -eq $(Get-FileHash $dependency.file).Hash)) {
+#       Write-Log -Level 'INFO' -Message "Downloading: {0}" -Arguments $dependency.url
+#       try {
+#         $WebClient.DownloadFile($dependency.url, $dependency.file)
+#       }
+#       catch {
+#         #Pass the exception as an inner exception
+#         throw [System.Net.WebException]::new("Error downloading $($dependency.url).", $_.Exception)
+#       }
+#       if ($dependency.hash -ne $null -and ($dependency.hash -ne $(Get-FileHash $dependency.file).Hash)) {
+#         throw [System.InvalidOperationException]::new("Dependency hash does not match the downloaded file. " +
+#         "Received: `"$($(Get-FileHash $dependency.file).Hash)`"")
+#       }
+#     }
+#   }
 
-  if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath `
-    "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx"))) {
-    Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
-  }
-  $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath `
-    "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx")
-  $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) `
-    -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
-  if ($results.RestartNeeded -eq $true) {
-      Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
-      Set-AutoExec
-      Restart-Host
-    }
-}
+#   if (-Not (Test-Path (Join-Path -Path $dlFolder -ChildPath `
+#     "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx"))) {
+#     Expand-Archive -Path $uiLibsUwp.file -DestinationPath ($dlFolder + '\Microsoft.UI.Xaml.2.8') -Force
+#   }
+#   $uiLibsUwp.file = (Join-Path -Path $dlFolder -ChildPath `
+#     "\Microsoft.UI.Xaml.2.8\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx")
+#   $results = Add-AppxProvisionedPackage -Online -PackagePath  $($desktopAppInstaller.file) `
+#     -LicensePath $($desktopAppLicense.file)  -DependencyPackagePath $($vcLibsUwp.file), $($uiLibsUwp.file)
+#   if ($results.RestartNeeded -eq $true) {
+#       Write-Log -Level 'INFO' -Message "WinGet is now installed. A restart is required"
+#       Set-AutoExec
+#       Restart-Host
+#     }
+# }
 
 # Ensure we are running with privileges. If not, elevate them by calling our own script recursively.
 function Assert-NotAdmin {
