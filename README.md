@@ -13,12 +13,12 @@ Open a command prompt window (CMD) and execute the following command:
 
 ```bat
 bitsadmin /transfer setup ^
-https://raw.githubusercontent.com/homeinfra/Horizon/feature/docker/src/client/setup-windows.bat ^
-%cd%\setup-windows.bat & setup-windows.bat -RepoUrl "https://github.com/homeinfra/Horizon.git" ^
+https://raw.githubusercontent.com/jeremfg/setup/refs/heads/main/src/setup_wsldockergit.bat ^
+%cd%\setup_wsldockergit.bat & setup_wsldockergit.bat -RepoUrl "https://github.com/homeinfra/Horizon.git" ^
 -RepoRef "feature/docker" -EntryPoint "echo 'Welcome to Horizon!'"
 ```
 
-This will download and execute [this script](src/client/setup-windows.bat). This script is designed to run on a fresh
+This will download and execute [this script](https://raw.githubusercontent.com/jeremfg/setup/refs/heads/main/src/setup_wsldockergit.bat). This script is designed to run on a fresh
 vanilla installation of Windows. At the end of it's execution, it will have setup a Ubuntu environment
 (running under WSL 2) where Docker is supported, the specified repository cloned, and the entrypoint within called.
 
