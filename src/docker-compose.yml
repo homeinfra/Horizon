@@ -1,16 +1,23 @@
 ---
 # SPDX-License-Identifier: MIT
 #
-# This docker-compose configures the production environment, as well as the development environment
-# used client-side to deploy and manage the horizon cluster.
+# This docker-compose configures the production environment, as well as the
+# development environment used client-side to deploy and manage the horizon
+# cluster.
 #
-# This should all be called/configured by calling top-level scripts. But in essence:
+# This should all be called/configured by calling top-level scripts.
+# Essentially:
 #
 # installation:
-# to install docker compose in WSL, type the following commands on a WSL terminal:
-#  - sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o \
-#    /usr/local/bin/docker-compose
+# to install docker compose in WSL, type the following commands on a WSL
+# terminal:
+# yamllint disable rule:line-length
+#  - sudo curl -SL
+#    https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64
+#    -o /usr/local/bin/docker-compose
+# yamllint enable rule:line-length
 #  - sudo chmod +x /usr/local/bin/docker-compose
+#
 #
 # validate installation:
 # type the following command to validate docker-compose is installed properly
@@ -18,8 +25,8 @@
 #
 # usage :
 #  - docker-compose build (will build all listed images)
-#  - docker-compose build <service_name> (will build a single image, without building its dependencies if any)
-version: '3'
+#  - docker-compose build <service_name> (will build a single image, without
+#    building its dependencies if any)
 services:
   # Base image for production
   prod_base:

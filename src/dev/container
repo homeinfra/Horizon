@@ -76,18 +76,18 @@ co_build() {
   cmd=("${args[@]}" "docker-compose" "build" "--build-arg" "VER_VERSION=${ver}")
   logInfo "Building image:\n${cmd[*]}"
 
-  if ! "${cmd[@]}" "prod_base"; then
+  if ! eval "${cmd[*]}" "prod_base"; then
     logFatal "Failed to build base image"
-  elif ! "${cmd[@]}" "prod"; then
+  elif ! eval "${cmd[*]}" "prod"; then
     logFatal "Failed to build prod image"
   fi
   if [[ "${_env}" == "dev" ]]; then
-    if ! "${cmd[@]}" "${_env}"; then
+    if ! eval "${cmd[*]}" "${_env}"; then
       logFatal "Failed to build dev image"
     fi
   fi
 
-  # if ! "${cmd[@]}" "${_env}"; then
+  # if ! eval "${cmd[*]}" "${_env}"; then
   #     logFatal "Failed to build image"
   # fi
 
