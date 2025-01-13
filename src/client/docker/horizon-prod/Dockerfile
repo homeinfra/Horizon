@@ -23,6 +23,7 @@ RUN addgroup ${SYS_GROUP} --system && \
 
 # The following extras were needed:
 # - gcompat (needed by the XAPI-cli tool)
+# - stunnel (needed by the XAPI-cli tool)
 # - git (needed by BPKG)
 # - cargo (needed for coreos-installer)
 # - openssl-dev (needed for coreos-installer)
@@ -34,6 +35,7 @@ RUN apk add --no-cache \
   sops \
   age \
   git \
+  stunnel \
   gcompat \
   cargo \
   openssl-dev \
