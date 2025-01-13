@@ -14,6 +14,12 @@ setup() {
     logFatal "Failed to load configuration"
     return 1
   fi
+
+  # Test connection to the management interface of demers-qnap
+  if ! xe_create_connection "${XEN_MGT}"; then
+    logFatal "Failed to connect to demers-qnap's management interface"
+    return 1
+  fi
 }
 
 sdq_config() {
@@ -25,7 +31,13 @@ sdq_config() {
   # Load dependencies
   # shellcheck disable=SC1091
   if ! source "${DIR_SETUP}/src/age.sh"; then
-    logFatal "Failed to load age.sh"
+    logError "Failed to load age.sh"
+    return 1
+  fi
+  # shellcheck disable=SC1091
+  if ! source "${DIR_XAPI}/src/xe_utils.sh"; then
+    logError "Failed to load xe_utils.sh"
+    return 1
   fi
 
   # Make sure age is configured
@@ -40,10 +52,16 @@ sdq_config() {
       return 1
     fi
   done
+
+  # Add the local xe executable to PATH
+  PATH="${SDQ_ROOT}/libs/xe:${PATH}"
+  export PATH
 }
 
 # External variables
 DIR_SETUP=""
+DIR_XAPI=""
+XEN_MGT=""
 
 # Constants
 LOCAL_CONFIG=".config/demers-qnap.env:.config/local.env"

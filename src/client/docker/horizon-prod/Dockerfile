@@ -21,7 +21,12 @@ RUN addgroup ${SYS_GROUP} --system && \
   adduser ${SYS_USER} --system -u 10001 -G ${SYS_GROUP}
 # Previously the adduser had these extra options: --create-home -d /home/${SYS_USER} -s /bin/ash
 
-# Added "cargo", "openssl-dev" and "zstd-dev" as prerequisites for coreos-installer
+# The following extras were needed:
+# - gcompat (needed by the XAPI-cli tool)
+# - git (needed by BPKG)
+# - cargo (needed for coreos-installer)
+# - openssl-dev (needed for coreos-installer)
+# - zstd-dev (needed for coreos-installer)
 # hadolint ignore=DL3018
 RUN apk add --no-cache \
   python3 \
@@ -29,6 +34,7 @@ RUN apk add --no-cache \
   sops \
   age \
   git \
+  gcompat \
   cargo \
   openssl-dev \
   zstd-dev \
