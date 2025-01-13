@@ -11,13 +11,7 @@
 
 setup() {
   if ! sdq_config; then
-    logFatal "Failed to load configuration"
-    return 1
-  fi
-
-  # Test connection to the management interface of demers-qnap
-  if ! xe_create_connection "${XEN_MGT}"; then
-    logFatal "Failed to connect to demers-qnap's management interface"
+    logFatal "Failed to configure"
     return 1
   fi
 }
@@ -30,18 +24,8 @@ sdq_config() {
 
   # Load dependencies
   # shellcheck disable=SC1091
-  if ! source "${DIR_SETUP}/src/age.sh"; then
-    logError "Failed to load age.sh"
-    return 1
-  fi
-  # shellcheck disable=SC1091
   if ! source "${DIR_XAPI}/src/xe_utils.sh"; then
     logError "Failed to load xe_utils.sh"
-    return 1
-  fi
-
-  # Make sure age is configured
-  if ! age_configure "homeinfra" "${SDQ_ROOT}/.config"; then
     return 1
   fi
 
@@ -56,10 +40,17 @@ sdq_config() {
   # Add the local xe executable to PATH
   PATH="${SDQ_ROOT}/libs/xe:${PATH}"
   export PATH
+
+  # Test connection to the management interface of demers-qnap
+  if ! xe_create_connection "${XEN_MGT}"; then
+    logFatal "Failed to connect to demers-qnap's management interface"
+    return 1
+  else
+    logInfo "Connected successfully to demers-qnap's management interface"
+  fi
 }
 
 # External variables
-DIR_SETUP=""
 DIR_XAPI=""
 XEN_MGT=""
 
@@ -91,8 +82,6 @@ if [[ -z "${PREFIX}" ]]; then
 fi
 
 # Import dependencies
-export LOG_CONSOLE=1
-export LOG_LEVEL=0
 # shellcheck disable=SC1091
 if ! source "${PREFIX}/lib/slf4.sh"; then
   echo "Failed to import slf4.sh"
