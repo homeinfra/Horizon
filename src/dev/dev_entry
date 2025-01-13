@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# SPDX-License-Identifier: MIT
+#
+# This is the entry point for the dev container
+
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+  exit $?
+else
+  echo "Welcome to Horizon's development container!"
+  /bin/sh -i
+fi

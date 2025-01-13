@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: MIT
+#
+# Horizon management image
+
 # hadolint ignore=DL3007
 FROM horizon-prod-base-image:latest
 
@@ -17,25 +21,19 @@ RUN addgroup ${SYS_GROUP} --system && \
   adduser ${SYS_USER} --system -u 10001 -G ${SYS_GROUP}
 # Previously the adduser had these extra options: --create-home -d /home/${SYS_USER} -s /bin/ash
 
-# Added "python3-dev" as prerequisites for SOPS
-# Added "openssl-dev" and "zstd-dev" as prerequisites for coreos-installer
+# Added "cargo", "openssl-dev" and "zstd-dev" as prerequisites for coreos-installer
+# hadolint ignore=DL3018
 RUN apk add --no-cache \
-  python3=3.11.5-r0 \
-  py3-pip=23.1.2-r0 \
-  python3-dev=3.11.5-r0 \
-  samba-client=4.18.5-r0 \
-  cargo=1.71.1-r0 \
-  openssl-dev=3.1.3-r0 \
-  zstd-dev=1.5.5-r4 \
-  && pip3 install --no-cache-dir \
-  virtualenv==20.24.5 \
-  python-dotenv==1.0.0 \
-  sops==1.18 \
-  age==0.5.1 \
+  python3 \
+  samba-client \
+  sops \
+  age \
+  cargo \
+  openssl-dev \
+  zstd-dev \
   && cargo install --root ${LOCAL_BINDIR} \
-  coreos-installer --version=0.18.0 \
+  coreos-installer \
   && apk del \
-  python3-dev \
   openssl-dev \
   zstd-dev \
   cargo \

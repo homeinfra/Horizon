@@ -1,0 +1,4 @@
+[submodule "external/demers-qnap"]
+	path = external/demers-qnap
+	url = git@github.com:homeinfra/demers-qnap.git
+	branch = main

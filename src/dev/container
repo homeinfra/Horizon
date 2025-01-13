@@ -4,47 +4,107 @@
 # This script is used to manage the development container.
 #
 # NOTE: Designed for execution under Ubuntu WSL (Windows Subsystem for Linux)
-set -eo pipefail
+set -o pipefail
 
 main() {
-  declare cfg
-  declare env
+  # Check dependencies
+  if ! dependencies; then
+    logFatal "Failed to load dependencies"
+  fi
 
-  parse cfg env
-  logInfo "Calling ${cfg} container for environment ${env}"
+  local cfg env
+  if ! parse cfg env; then
+    logFatal "Failed to parse arguments"
+  fi
 
-  eval "${cfg}" "${env}"
+  logInfo "Calling ${cfg} container for environment: ${env}"
+
+  if ! eval "co_${cfg}" "${env}"; then
+    logFatal "Failed to call ${cfg} container for environment: ${env}"
+  fi
+}
+
+dependencies() {
+  # Check if docker is installed
+  if ! command -v docker >/dev/null; then
+    logFatal "Docker is not installed. Please install it first."
+  elif ! command -v docker-compose >/dev/null; then
+    logFatal "Docker-compose is not installed. Please install it first."
+  elif ! command -v semver >/dev/null; then
+    logFatal "Semver is not installed. Please install it first."
+  fi
+
+  if ! config_load "${CO_ROOT}/data/local.env"; then
+    return 1
+  fi
+  # shellcheck source=external/demers-qnap/external/setup/src/git.sh
+  if ! source "${DIR_SETUP}/src/git.sh"; then
+    return 1
+  fi
+
+  return 0
 }
 
 # Buid the container
 #
 # Parameters:
-#   $_env[in]: Name of the service to build
-# shellcheck disable=SC2317
-build() {
+#   $1[in]: Name of the service to build
+co_build() {
   local _env="$1"
 
-  local ver
-  ver=$(${SEMVER_EXEC})
+  local res
+  local args=()
+  local cmd=()
 
-  logInfo "Building images @ version: ${ver}..."
-  cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod_base"
-  cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "prod"
+  pushd "${CO_ROOT}/src" >/dev/null || logFatal "Failed change directory to ${CO_ROOT}/src"
+
+  # Variables
+  ver=$(semver)
+  args+=("CLIENT_USER=${CLIENT_USER}")
+  args+=("CLIENT_GROUP=${CLIENT_GROUP}")
+  args+=("IG_PORT=${IG_PORT}")
+  args+=("SERVER_PORT=${SERVER_PORT}")
+  args+=("BUTANE_URL=${BUTANE_URL}")
+
   if [[ "${_env}" == "dev" ]]; then
-    cd "${ROOT}/src" && docker-compose build --build-arg VER_VERSION="${ver}" "${_env}"
+    args+=("DEV_USER=${DEV_USER}")
+    args+=("DEV_GROUP=${DEV_GROUP}")
+    args+=("DEV_UID=$(id -u)")
+    args+=("DEV_GID=$(id -g)")
   fi
+
+  cmd=("${args[@]}" "docker-compose" "build" "--build-arg" "VER_VERSION=${ver}")
+  logInfo "Building image:\n${cmd[*]}"
+
+  if ! "${cmd[@]}" "prod_base"; then
+    logFatal "Failed to build base image"
+  elif ! "${cmd[@]}" "prod"; then
+    logFatal "Failed to build prod image"
+  fi
+  if [[ "${_env}" == "dev" ]]; then
+    if ! "${cmd[@]}" "${_env}"; then
+      logFatal "Failed to build dev image"
+    fi
+  fi
+
+  # if ! "${cmd[@]}" "${_env}"; then
+  #     logFatal "Failed to build image"
+  # fi
+
   logInfo "Image built"
+
+  popd >/dev/null || logFatal "Failed to change directory back"
 }
 
 # Start the container
 #
 # Parameters:
-#   $_env[in]: Container to start
+#   $1[in]: Container to start
 # shellcheck disable=SC2317
-start() {
+co_start() {
   local _env="$1"
-  local container_name="horizon-${_env}"
-  local image_name="${container_name}-image"
+  local container_name="${CO_NAME_PREFIX}${_env}"
+  local image_name="${container_name}${CO_IMAGE_SUFFIX}"
 
   # Check if container is found
   if docker ps -a --format '{{.Names}}' | grep -q "^""${container_name}""$"; then
@@ -65,52 +125,15 @@ start() {
   else
     logInfo "Container ${container_name} NOT found"
 
-    if ! docker images -q "${image_name}" | grep -q .; then
-      logInfo "Image \"${image_name}\" does not seem to exist. Try building-it first."
-      build "${_env}"
+    local cmd res
+    if ! co_prepare_cmd cmd "${_env}" "${container_name}"; then
+      logFatal "Failed to prepare command"
     fi
 
-    # We need the git repository root
-    # This is the path we wish to use as a current working directory
-    desired_root=${ROOT}
-
-    # Find the top of the git repo
-    if repo_root=$(git rev-parse --show-toplevel); then
-      if [[ -z "${repo_root}" ]]; then
-        logFatal "Unable to determine the root of the current repo"
-      fi
-    else
-      logFatal "Failed to check for root of repo"
+    logInfo "Starting container using command:\n${cmd[*]}"
+    if ! "${cmd[@]}" >/dev/null; then
+      logFatal "Failed to start container"
     fi
-
-    # Check if we are inside a submodule
-    if parent_repo=$(git rev-parse --show-superproject-working-tree); then
-      if [[ -n "${parent_repo}" ]]; then
-        repo_root="${parent_repo}"
-      fi
-    else
-      logFatal "Failed to check if we are in a submodule"
-    fi
-
-    # Find relative path to root of repo
-    relative_root="${desired_root#"${repo_root}"}"
-
-    # Pick the correct user based on env
-    local user=${CLIENT_USER}
-    if [[ "${_env}" == "dev" ]]; then
-      user=${DEV_USER}
-    fi
-
-    # TODO: Maybe add the "--init" option later
-    #       Maybe we'll have to define ports later. Ex: -p 10080:8080 -p 10022:22 -p 7556-7559:7556-7559
-    cmd="docker run --user ${user} -dit \
--v ${repo_root}:/home/${user}/src \
--e VER_HOST=$(hostname) \
--w /home/${user}/src${relative_root} \
---name ${container_name} ${image_name}"
-
-    logInfo "Starting container using command:\n${cmd}"
-    eval "${cmd}" >/dev/null
     logInfo "Container started"
   fi
 }
@@ -118,16 +141,18 @@ start() {
 # Stop the container
 #
 # Parameters:
-#   $_env[in]: Container to stop
+#   $1[in]: Container to stop
 # shellcheck disable=SC2317
-stop() {
+co_stop() {
   local _env="$1"
-  local container_name="horizon-${_env}"
+  local container_name="${CO_NAME_PREFIX}${_env}"
 
   # First check if container exists
   if docker ps -q --filter "name=${container_name}" | grep -q .; then
     logInfo "Stopping container..."
-    docker stop "${container_name}" >/dev/null
+    if ! docker stop "${container_name}" >/dev/null; then
+      logFatal "Failed to stop container"
+    fi
     logInfo "Container stopped"
   else
     logWarn "No container named \"${container_name}\" was found to be running!"
@@ -137,11 +162,11 @@ stop() {
 # Delete the container
 #
 # Parameters:
-#   $_env[in]: Container to stop
+#   $1[in]: Container to stop
 # shellcheck disable=SC2317
-delete() {
+co_delete() {
   local _env="$1"
-  local container_name="horizon-${_env}"
+  local container_name="${CO_NAME_PREFIX}${_env}"
 
   if docker ps -a --format '{{.Names}}' | grep -q "^""${container_name}""$"; then
 
@@ -155,11 +180,88 @@ delete() {
     fi
 
     logInfo "Deleting container..."
-    docker rm "${container_name}" >/dev/null
+    if ! docker rm "${container_name}" >/dev/null; then
+      logFatal "Failed to delete container"
+    fi
     logInfo "Container deleted"
   else
     logWarn "No contained named \"${container_name}\" was found!"
   fi
+}
+
+# Execute a command in the container and return after completion
+#
+# Parameters:
+#  $1[in]: Container to execute command in
+# shellcheck disable=SC2317
+co_exec() {
+  local _env="$1"
+  local container_name="${CO_NAME_PREFIX}${_env}"
+  local image_name="${container_name}${CO_IMAGE_SUFFIX}"
+
+  local cmd res
+  if ! co_prepare_cmd cmd "${_env}" ""; then
+    logFatal "Failed to prepare command"
+  fi
+  cmd+=("${EXEC_ARGS[@]}")
+
+  logInfo "Executing command in container using command:\n${cmd[*]}"
+  "${cmd[@]}"
+  res=$?
+  if [[ ${res} -ne 0 ]]; then
+    logError "Failed to execute command in container"
+  fi
+
+  # shellcheck disable=SC2248
+  exit ${res}
+}
+
+# Prepare the command to be executed
+#
+# Parameters:
+#   $1[out]: Command to prepare
+#   $2[in]: Environment to prepare command for
+#   $3[in]: Container name
+co_prepare_cmd() {
+  declare -n _cmd="$1"
+  local _env="$2"
+  local _name="$3"
+
+  if ! docker images -q "${image_name}" | grep -q .; then
+    logInfo "Image \"${image_name}\" does not seem to exist. Try building-it first."
+    build "${_env}"
+  fi
+
+  local desired_root top_root relative_root
+  desired_root=${CO_CWD}
+
+  if ! git_find_root top_root "${desired_root}"; then
+    logFatal "Failed to find git root"
+  fi
+
+  # Find relative path to root of repo
+  relative_root="${desired_root#"${top_root}"}"
+
+  # Pick the correct user based on env
+  local user=${CLIENT_USER}
+  if [[ "${_env}" == "dev" ]]; then
+    user=${DEV_USER}
+  fi
+
+  # TODO: Maybe add the "--init" option later
+  #       Maybe we'll have to define ports later. Ex: -p 10080:8080 -p 10022:22 -p 7556-7559:7556-7559
+  _cmd=("docker" "run" "--user" "${user}")
+  if [[ -z "${_name}" ]]; then
+    _cmd+=("--rm" "-it")
+  else
+    _cmd+=("-dit")
+  fi
+  _cmd+=("-v" "${top_root}:/home/${user}/src" "-e" "VER_HOST=$(hostname)")
+  _cmd+=("-w" "/home/${user}/src${relative_root}")
+  if [[ -n "${_name}" ]]; then
+    cmd+=("--name" "${_name}")
+  fi
+  cmd+=("${image_name}")
 }
 
 # Parse arguments received via command line
@@ -171,131 +273,175 @@ parse() {
   declare -n _cfg="$1"
   declare -n _env="$2"
 
+  # Default values
   _cfg="start"
   _env="dev"
 
-  if [[ ${NUM_ARGS} -eq 0 ]]; then
-    : # Default behavior, attach to a prod environment
-  else
-    local arg_counter=0
-    for i in "${ARGS[@]}"; do
-      arg_counter=$((arg_counter + 1))
+  local short long opts arg
+  short="hv"
+  long="help,version"
 
-      # Parse config command
-      if [[ ${arg_counter} -eq 1 ]]; then
-        case ${i} in
-        start | stop | build | delete)
-          _cfg="${i}"
-          continue
-          ;;
-        *) ;;
+  # First pass to scan for "--"
+  declare -g -a EXEC_ARGS=()
+  local real_args=()
+  local is_command=false
+  for arg in "${CO_ARGS[@]}"; do
+    logTrace "Analyzing argument: ${arg}"
+    if [[ "${is_command}" == "true" ]]; then
+      logTrace "Intercepting ${arg}"
+      EXEC_ARGS+=("${arg}")
+    elif [[ "${arg}" == "--" ]]; then
+      logTrace "From now on we are intercepting"
+      is_command=true
+    else
+      logTrace "Keeping ${arg}"
+      real_args+=("${arg}")
+    fi
+  done
 
-        esac
-      fi
-      case ${i} in
-      -h | --help)
-        print_help
-        end
-        ;;
-      -v | --version)
-        ${SEMVER_EXEC}
-        end
-        ;;
-      --env=?*)
-        local r_env=${i##*=}
-        if [[ "${r_env}" == "prod" || "${r_env}" == "dev" ]]; then
-          _env="${r_env}"
-        else
-          echo "ERROR: Unknown environment \"${r_env}\"."
-          exit 1
-        fi
+  if ! opts=$(getopt --options "${short}" --long "${long}" --name "${CO_ME}" -- "${real_args[@]}"); then
+    logFatal "Failed to parse arguments"
+  fi
+
+  eval set -- "${opts}"
+  while true; do
+    logTrace "Parsing option: ${1}"
+    case "$1" in
+    -h | --help)
+      print_help
+      exit 0
+      ;;
+    -v | --version)
+      cd "${CO_ROOT}" && semver
+      exit 0
+      ;;
+    --)
+      shift # Remaining arguments are positional
+      break
+      ;;
+    *)
+      logFatal "Unknown option: $1"
+      ;;
+    esac
+  done
+
+  # Handle positional arguments
+  local arg_counter=0
+  while [[ $# -gt 0 ]]; do
+    arg_counter=$((arg_counter + 1))
+    arg=${1}
+    shift
+    logTrace "Parsing argument ${arg_counter}: ${arg}"
+    case ${arg_counter} in
+    1)
+      case ${arg} in
+      start | stop | build | delete | exec)
+        _cfg="${arg}"
         ;;
       *)
-        echo "ERROR: Argument #${arg_counter} of ${NUM_ARGS} unexpected: \"${i}\" in \"${ARGS[*]}\""
-        exit 1
+        logFatal "Unknown or too many argument: ${arg}"
         ;;
       esac
-    done
-  fi
+      ;;
+    2)
+      case ${arg} in
+      dev | prod)
+        _env="${arg}"
+        ;;
+      *)
+        logFatal "Unknown or too many argument: ${arg}"
+        ;;
+      esac
+      ;;
+    *)
+      logFatal "Unknown or too many argument: ${arg}"
+      break
+      ;;
+    esac
+  done
 }
 
 print_help() {
-  echo "Script to manage the docker environment. This is the entry point to switch into the environment"
-  echo ""
-  echo "Usage: ${ME} [build|start|stop|delete] [--env=<env>]"
-  echo "       ${ME} [-h|--help|]"
-  echo "       ${ME} [-v|--version]"
-  echo ""
-  echo "Commands:"
-  echo "  build         Build the container"
-  echo "  start         Start (and build if needed) the container"
-  echo "  stop          Stop the container"
-  echo "  stop          Delete the container"
-  echo ""
-  echo "Options:"
-  echo "  --env         Environment to be configured."
-  echo "  -h,--help     Print this usage message"
-  echo "  -v,--version  Print the version of this tool"
-  echo ""
-  echo "Parameters:"
-  echo "  <env>         Possibile values are: \"prod\" or \"dev\" (default)."
-  echo ""
+  cat <<EOF
+Script managing the docker environment. This is the entry point to switch into the environment
+
+Usage: ${CO_ME} [options]
+       ${CO_ME} <command> [<env>]
+       ${CO_ME} exec [<env>] -- <cmd>
+
+Command <command>:
+  build         Build the container
+  start         Start the container (will build if necessary)
+  stop          Stop the container
+  del           Delete the container
+  exec          Execute a command in the container
+
+Environment <env>:
+  prod         Production environment
+  dev          Development environment [Default]
+
+Options:
+  -h,--help     Print this usage message
+  -v,--version  Print the version of this tool
+  --            End of cmdline processing, what follows will be passed to the container
+EOF
 }
 
-end() {
-  log "== ${ME} Exited gracefully =="
+# External variablers
+DIR_SETUP=""
 
-  # If we reach here, execution completed succesfully
-  exit 0
-}
+# Constants
+readonly CO_NAME_PREFIX="horizon-"
+readonly CO_IMAGE_SUFFIX="-image"
+
+BUTANE_URL="https://github.com/coreos/butane/releases/download/v0.23.0/butane-x86_64-unknown-linux-gnu"
 
 ###########################
 ###### Startup logic ######
 ###########################
-
-# Keep a copy of entry arguments
-NUM_ARGS="$#"
-ARGS=("$@")
-
-# Name of this script
-ME="$(basename "$0")"
+CO_ARGS=("$@")
+CO_ME="$(basename "${BASH_SOURCE[0]}")"
+CO_CWD=$(pwd)
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128
-SOURCE=${BASH_SOURCE[0]}
-while [[ -L "${SOURCE}" ]]; do # resolve $SOURCE until the file is no longer a symlink
-  DIR=$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)
-  SOURCE=$(readlink "${SOURCE}")
-  [[ ${SOURCE} != /* ]] && SOURCE=${DIR}/${SOURCE} # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+CO_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${CO_SOURCE}" ]]; do # resolve $CO_SOURCE until the file is no longer a symlink
+  CO_ROOT=$(cd -P "$(dirname "${CO_SOURCE}")" >/dev/null 2>&1 && pwd)
+  CO_SOURCE=$(readlink "${CO_SOURCE}")
+  [[ ${CO_SOURCE} != /* ]] && CO_SOURCE=${CO_ROOT}/${CO_SOURCE} # if $CO_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
-DIR=$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)
+CO_ROOT=$(cd -P "$(dirname "${CO_SOURCE}")" >/dev/null 2>&1 && pwd)
+CO_ROOT=$(realpath "${CO_ROOT}/../..")
 
-ROOT=$(realpath "${DIR}/../..")
-LOGGER_EXEC="${ROOT}/tools/logger-shell/logger.sh"
-SHUTILS_EXEC="${ROOT}/tools/shell-utils/shell-utils.sh"
-SEMVER_EXEC="${ROOT}/tools/semver/semver"
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
 
-# Import logger
-# shellcheck source=tools/logger-shell/logger.sh
-. "${LOGGER_EXEC}"
-log "== ${ME} Started =="
+# Import dependencies
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
 
-# Load configuration
-source "${ROOT}/.config/default.env"
-# shellcheck disable=2154
-IFS=":" read -r -a CONFIGS <<<"${LOCAL_CONFIG}"
-for config in "${CONFIGS[@]}"; do
-  log "Loading config: ${config}"
-  # shellcheck source=.config/default.env
-  source <(sops -d "${ROOT}/${config}" || true)
-done
-
-# Import shell-utils
-# shellcheck source=tools/shell-utils/shell-utils.sh
-. "${SHUTILS_EXEC}"
-
-# Call main function
-main
-
-# Exit gracefully
-end
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  main
+  exit $?
+fi

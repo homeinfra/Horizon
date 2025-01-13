@@ -49,6 +49,8 @@ services:
         !!merge <<: *prod_args
         DEV_USER: ${DEV_USER}
         DEV_GROUP: ${DEV_GROUP}
+        DEV_UID: ${DEV_UID}
+        DEV_GID: ${DEV_GID}
     container_name: horizon-dev
     image: horizon-dev-image
     depends_on:
