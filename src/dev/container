@@ -34,7 +34,7 @@ dependencies() {
     logFatal "Semver is not installed. Please install it first."
   fi
 
-  if ! config_load "${CO_ROOT}/data/local.env"; then
+  if ! config_load "${CO_ROOT}/.config/default.env"; then
     return 1
   fi
   # shellcheck source=external/demers-qnap/external/setup/src/git.sh
@@ -176,7 +176,7 @@ co_delete() {
 
     if [[ "${status}" == "true" ]]; then
       logWarn "Container is currently running. Stop it first."
-      stop "${_env}"
+      co_stop "${_env}"
     fi
 
     logInfo "Deleting container..."
@@ -389,12 +389,11 @@ EOF
 
 # External variablers
 DIR_SETUP=""
+BUTANE_URL=""
 
 # Constants
 readonly CO_NAME_PREFIX="horizon-"
 readonly CO_IMAGE_SUFFIX="-image"
-
-BUTANE_URL="https://github.com/coreos/butane/releases/download/v0.23.0/butane-x86_64-unknown-linux-gnu"
 
 ###########################
 ###### Startup logic ######

@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to remotely configure the demers-qnap machine
+# It takes over once the OS has already performed the following:
+# 1. Installed the OS (XCP-ng) on baremetal
+# 2. Reposiory homeinfra/demers-qnap has run locally to configure the machine
+# 3. The management interface is up and reachable at IP ${TODO}
+#
+# Designed to run under the client Horizon docker container
+
+setup() {
+  if ! sdq_config; then
+    logFatal "Failed to load configuration"
+    return 1
+  fi
+}
+
+sdq_config() {
+  # Load configuration
+  if ! config_load "${SDQ_ROOT}/.config/default.env"; then
+    return 1
+  fi
+
+  # Load dependencies
+  # shellcheck disable=SC1091
+  if ! source "${DIR_SETUP}/src/age.sh"; then
+    logFatal "Failed to load age.sh"
+  fi
+
+  # Make sure age is configured
+  if ! age_configure "homeinfra" "${SDQ_ROOT}/.config"; then
+    return 1
+  fi
+
+  local configs config
+  IFS=":" read -r -a configs <<<"${LOCAL_CONFIG}"
+  for config in "${configs[@]}"; do
+    if ! config_load "${SDQ_ROOT}/${config}"; then
+      return 1
+    fi
+  done
+}
+
+# External variables
+DIR_SETUP=""
+
+# Constants
+LOCAL_CONFIG=".config/demers-qnap.env:.config/local.env"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+SDQ_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${SDQ_SOURCE}" ]]; do # resolve $SDQ_SOURCE until the file is no longer a symlink
+  SDQ_ROOT=$(cd -P "$(dirname "${SDQ_SOURCE}")" >/dev/null 2>&1 && pwd)
+  SDQ_SOURCE=$(readlink "${SDQ_SOURCE}")
+  [[ ${SDQ_SOURCE} != /* ]] && SDQ_SOURCE=${SDQ_ROOT}/${SDQ_SOURCE} # if $SDQ_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SDQ_ROOT=$(cd -P "$(dirname "${SDQ_SOURCE}")" >/dev/null 2>&1 && pwd)
+SDQ_ROOT=$(realpath "${SDQ_ROOT}/../../..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Import dependencies
+export LOG_CONSOLE=1
+export LOG_LEVEL=0
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  setup
+  exit $?
+fi

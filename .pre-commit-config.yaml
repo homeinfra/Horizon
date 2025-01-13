@@ -5,6 +5,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ['--maxkb=512']
+        exclude: 'libs/xe/xe'
       - id: check-ast  # Python
       - id: check-case-conflict
       - id: check-docstring-first  # Python
@@ -41,6 +42,7 @@ repos:
       - id: script-must-not-have-extension  # Shell
         types: [shell, executable]
       - id: forbid-binary
+        exclude: 'libs/xe/xe'
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.43.0
     hooks:

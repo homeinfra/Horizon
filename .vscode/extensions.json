@@ -2,5 +2,6 @@
   "recommendations": [
     "timonwong.shellcheck",
     "mhutchie.git-graph",
+    "signageos.signageos-vscode-sops",
   ]
 }

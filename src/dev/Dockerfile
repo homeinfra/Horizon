@@ -18,6 +18,8 @@ LABEL version=${VER_VERSION}
 
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 
+USER root
+
 # Add a non-root user 'dev' with sudo access which doesn't require password input.
 # This user will be the default user used in the development environment.
 RUN addgroup ${DEV_GROUP} -g ${DEV_GID} && \
@@ -35,7 +37,6 @@ RUN addgroup ${DEV_GROUP} -g ${DEV_GID} && \
 # - npm (markdownlint)
 # hadolint ignore=DL3018
 RUN apk add --no-cache \
-  git \
   pre-commit \
   shellcheck \
   python3-dev \
@@ -53,5 +54,14 @@ RUN apk add --no-cache \
 # # Copy the entrypoint script into the container
 COPY dev_entry ${LOCAL_BINDIR}/bin/dev_entry
 RUN chmod +x ${LOCAL_BINDIR}/bin/dev_entry
+
+USER ${DEV_USER}
+ENV PATH=/home/${DEV_USER}/.local/bin:${PATH}
+ENV SOPS_AGE_KEY_FILE=/home/${DEV_USER}/src/.config/homeinfra.txt
+
+# Install script dependencies
+RUN curl -sLo- https://get.bpkg.sh | bash \
+  && bpkg install -g jeremfg/slf4.sh \
+  && bpkg install -g jeremfg/config.sh
 
 ENTRYPOINT ["/usr/local/bin/dev_entry"]

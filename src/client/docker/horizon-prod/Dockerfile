@@ -28,6 +28,7 @@ RUN apk add --no-cache \
   samba-client \
   sops \
   age \
+  git \
   cargo \
   openssl-dev \
   zstd-dev \
@@ -42,6 +43,15 @@ RUN apk add --no-cache \
 # Install butane
 RUN curl -Lo ${LOCAL_BINDIR}/bin/butane ${BUTANE_URL} && \
   chmod +x ${LOCAL_BINDIR}/bin/butane
+
+USER ${SYS_USER}
+ENV PATH=/home/${SYS_USER}/.local/bin:${PATH}
+ENV SOPS_AGE_KEY_FILE=/home/${SYS_USER}/src/.config/homeinfra.txt
+
+# Install script dependencies
+RUN curl -sLo- https://get.bpkg.sh | bash \
+  && bpkg install -g jeremfg/slf4.sh \
+  && bpkg install -g jeremfg/config.sh
 
 # From docker-compose.yml
 EXPOSE ${IG_PORT}
