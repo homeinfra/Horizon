@@ -10,18 +10,6 @@ end_of_line = lf
 indent_style = space
 insert_final_newline = true
 indent_size = 2
-max_line_length = 120
 
 # --language-variant
-shell_variant      = ash
-binary_next_line   = false
-# --case-indent
-switch_case_indent = true
-space_redirects    = true
-keep_padding       = true
-# --func-next-line
-function_next_line = false
-
-# Ignore the entire "third_party" directory.
-[extras/**]
-ignore = true
+shell_variant      = bash
