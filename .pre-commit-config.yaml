@@ -69,6 +69,7 @@ repos:
   - repo: local
     hooks:
       - id: my-dotenv-linter  # dotenv
+        args: [--skip, LowercaseKey]
         name: dotenv-linter
         pass_filenames: true
         language: system
@@ -78,7 +79,8 @@ repos:
     rev: 8.4.1
     hooks:
       - id: pylama  # Python
-        additional_dependencies: ['setuptools']
+        additional_dependencies:
+          - setuptools
         args: [-o, .pylama.ini]
         exclude: src/hal/qnaplcd/__init__.py
   - repo: https://github.com/AleksaC/hadolint-py

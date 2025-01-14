@@ -34,9 +34,14 @@ dependencies() {
     logFatal "Semver is not installed. Please install it first."
   fi
 
-  if ! config_load "${CO_ROOT}/.config/default.env"; then
-    return 1
-  fi
+  local configs config
+  IFS=":" read -r -a configs <<<".config/default.env:${LOCAL_CONFIG}"
+  for config in "${configs[@]}"; do
+    if ! config_load "${CO_ROOT}/${config}"; then
+      return 1
+    fi
+  done
+
   # shellcheck source=external/demers-qnap/external/setup/src/git.sh
   if ! source "${DIR_SETUP}/src/git.sh"; then
     return 1
@@ -232,7 +237,7 @@ co_prepare_cmd() {
     build "${_env}"
   fi
 
-  local desired_root top_root relative_root
+  local desired_root top_root relative_root new_home
   desired_root=${CO_CWD}
 
   if ! git_find_root top_root "${desired_root}"; then
@@ -247,6 +252,7 @@ co_prepare_cmd() {
   if [[ "${_env}" == "dev" ]]; then
     user=${DEV_USER}
   fi
+  new_home="/home/${user}"
 
   # TODO: Maybe add the "--init" option later
   #       Maybe we'll have to define ports later. Ex: -p 10080:8080 -p 10022:22 -p 7556-7559:7556-7559
@@ -256,8 +262,19 @@ co_prepare_cmd() {
   else
     _cmd+=("-dit")
   fi
-  _cmd+=("-v" "${top_root}:/home/${user}/src" "-e" "VER_HOST=$(hostname)")
-  _cmd+=("-w" "/home/${user}/src${relative_root}")
+  _cmd+=("-v" "${HOME}/.ssh:${new_home}/.ssh")
+  _cmd+=("-v" "${HOME}/.sops:${new_home}/.sops")
+  _cmd+=("-v" "${top_root}:${new_home}/src")
+
+  # If age key starts with ${HOME}, do substitution
+  if [[ "${SOPS_AGE_KEY_FILE}" == "${HOME}"* ]]; then
+    # Replace ${HOME} in the path
+    SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE#"${HOME}"}"
+    SOPS_AGE_KEY_FILE="${new_home}${SOPS_AGE_KEY_FILE}"
+  fi
+  _cmd+=("-e" "SOPS_AGE_KEY_FILE=${SOPS_AGE_KEY_FILE}")
+  _cmd+=("-e" "VER_HOST=$(hostname)")
+  _cmd+=("-w" "${new_home}/src${relative_root}")
   if [[ -n "${_name}" ]]; then
     cmd+=("--name" "${_name}")
   fi
@@ -394,6 +411,7 @@ BUTANE_URL=""
 # Constants
 readonly CO_NAME_PREFIX="horizon-"
 readonly CO_IMAGE_SUFFIX="-image"
+LOCAL_CONFIG=".config/local.env"
 
 ###########################
 ###### Startup logic ######

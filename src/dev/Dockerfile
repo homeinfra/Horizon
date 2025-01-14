@@ -13,6 +13,7 @@ ARG DEV_GROUP
 ARG DEV_UID
 ARG DEV_GID
 ARG VER_VERSION
+ARG HOME_REL_AGE_KEY_FILE
 
 LABEL version=${VER_VERSION}
 
@@ -57,7 +58,6 @@ RUN chmod +x ${LOCAL_BINDIR}/bin/dev_entry
 
 USER ${DEV_USER}
 ENV PATH=/home/${DEV_USER}/.local/bin:${PATH}
-ENV SOPS_AGE_KEY_FILE=/home/${DEV_USER}/src/.config/homeinfra.txt
 
 # Install script dependencies
 RUN curl -sLo- https://get.bpkg.sh | bash \

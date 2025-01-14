@@ -35,6 +35,7 @@ RUN apk add --no-cache \
   sops \
   age \
   git \
+  openssh \
   stunnel \
   gcompat \
   cargo \
@@ -54,7 +55,6 @@ RUN curl -Lo ${LOCAL_BINDIR}/bin/butane ${BUTANE_URL} && \
 
 USER ${SYS_USER}
 ENV PATH=/home/${SYS_USER}/.local/bin:${PATH}
-ENV SOPS_AGE_KEY_FILE=/home/${SYS_USER}/src/.config/homeinfra.txt
 
 # Install script dependencies
 RUN curl -sLo- https://get.bpkg.sh | bash \

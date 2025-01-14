@@ -14,28 +14,105 @@ setup() {
     logFatal "Failed to configure"
     return 1
   fi
+
+  # Create the pool if it doesn't exist already
+  # if ! xe_pool_create "${POOL_NAME}"; then
+  #   logFatal "Failed to create pool"
+  #   return 1
+  # fi
+
+  if ! configure_network; then
+    return 1
+  fi
+
+  logInfo "Finished executing properly"
+}
+
+configure_network() {
+  # if ! xe_cleanup_network; then
+  #   logFatal "Failed to cleanup networks"
+  #   return 1
+  # fi
+
+  # Load network configuration
+  if ! config_load "${DIR_QNAP}/data/hardware.env"; then
+    logFatal "Failed to load hardware configuration"
+    return 1
+  fi
+
+  # Figure out which NIC is which
+  local mgt_mac_var net_mac_var mgt_mac net_mac
+  mgt_mac_var="${MGT_NIC}_MAC"
+  net_mac_var="${NET_NIC}_MAC"
+  mgt_mac="${!mgt_mac_var}"
+  net_mac="${!net_mac_var}"
+  logInfo "Management NIC: ${MGT_NIC} (${mgt_mac})"
+  logInfo "Network NIC: ${NET_NIC} (${net_mac})"
+
+  # if ! xe_vlan_config "${net_mac}" "${NETS}"; then
+  #   logFatal "Failed to configure network interface"
+  #   return 1
+  # fi
+
+  # Wait for the device to appear on the network
+  if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
+    return 1
+  fi
+  if ! nu_wait_ping "${XEN_HOST}" "30"; then
+    return 1
+  fi
+
+  # Reconfigure to use the dynamic interface, so we can reconfigure the mgt one
+  if ! xe_create_connection "${XEN_HOST}"; then
+    logFatal "Failed to connect to demers-qnap"
+    return 1
+  else
+    logInfo "Connected successfully to demers-qnap"
+  fi
+
+  # Reconfigure the management interface
+  # For some reasons, even tho the command works fine, it returns 1
+  # Retrying solves the issue, because we re-validate everything and
+  # determine it doesn't need to be called again.
+  local nb_attempts res
+  nb_attempts=2
+  while true; do
+    logDebug "Reconfiguring management IF (${nb_attempts} attempts left)"
+    nb_attempts=$((nb_attempts - 1))
+    xe_mgt_config "${mgt_mac}"
+    res=$?
+    if [[ ${res} -eq 0 ]]; then
+      break
+    elif [[ ${nb_attempts} -le 0 ]]; then
+      logError "Failed to reconfigure management IF"
+      return 1
+    else
+      logWarn "Failed to reconfigure management IF, retrying"
+    fi
+  done
 }
 
 sdq_config() {
   # Load configuration
-  if ! config_load "${SDQ_ROOT}/.config/default.env"; then
-    return 1
-  fi
-
-  # Load dependencies
-  # shellcheck disable=SC1091
-  if ! source "${DIR_XAPI}/src/xe_utils.sh"; then
-    logError "Failed to load xe_utils.sh"
-    return 1
-  fi
-
   local configs config
-  IFS=":" read -r -a configs <<<"${LOCAL_CONFIG}"
+  IFS=":" read -r -a configs <<<".config/default.env:${LOCAL_CONFIG}"
   for config in "${configs[@]}"; do
     if ! config_load "${SDQ_ROOT}/${config}"; then
       return 1
     fi
   done
+
+  # Load dependencies
+  # shellcheck disable=SC1091
+  if ! source "${DIR_XAPI}/src/xe_network.sh"; then
+    logError "Failed to load xe_network.sh"
+    return 1
+  fi
+  # shellcheck disable=SC1091
+  if ! source "${DIR_SETUP}/src/net.sh"; then
+    logError "Failed to load net.sh"
+    return 1
+  fi
 
   # Add the local xe executable to PATH
   PATH="${SDQ_ROOT}/libs/xe:${PATH}"
@@ -51,11 +128,17 @@ sdq_config() {
 }
 
 # External variables
+DIR_QNAP=""
+DIR_SETUP=""
 DIR_XAPI=""
 XEN_MGT=""
+XEN_HOST=""
+XEN_GW=""
+MGT_NIC=""
+NET_NIC=""
 
 # Constants
-LOCAL_CONFIG=".config/demers-qnap.env:.config/local.env"
+LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
 
 ###########################
 ###### Startup logic ######

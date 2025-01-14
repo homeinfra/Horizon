@@ -18,7 +18,10 @@ setup() {
   fi
 
   # Make sure age is configured
-  if ! age_configure "homeinfra" "${SD_ROOT}/.config"; then
+  if ! age_configure "homeinfra"; then
+    return 1
+  elif ! config_save "${SD_ROOT}/.config/local.env" \
+    "SOPS_AGE_KEY_FILE" "${HOME}/.sops/homeinfra.txt"; then
     return 1
   fi
 
