@@ -40,7 +40,6 @@ services:
       args: &prod_args
         SYS_GROUP: ${CLIENT_GROUP}
         SYS_USER: ${CLIENT_USER}
-        BUTANE_URL: ${BUTANE_URL}
     container_name: horizon-prod
     image: horizon-prod-image
     environment:

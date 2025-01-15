@@ -69,7 +69,6 @@ co_build() {
   args+=("CLIENT_GROUP=${CLIENT_GROUP}")
   args+=("IG_PORT=${IG_PORT}")
   args+=("SERVER_PORT=${SERVER_PORT}")
-  args+=("BUTANE_URL=${BUTANE_URL}")
 
   if [[ "${_env}" == "dev" ]]; then
     args+=("DEV_USER=${DEV_USER}")
@@ -405,8 +404,7 @@ EOF
 }
 
 # External variablers
-DIR_SETUP=""
-BUTANE_URL=""
+if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
 
 # Constants
 readonly CO_NAME_PREFIX="horizon-"

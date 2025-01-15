@@ -16,10 +16,10 @@ setup() {
   fi
 
   # Create the pool if it doesn't exist already
-  # if ! xe_pool_create "${POOL_NAME}"; then
-  #   logFatal "Failed to create pool"
-  #   return 1
-  # fi
+  if ! xe_pool_create "${POOL_NAME}"; then
+    logFatal "Failed to create pool"
+    return 1
+  fi
 
   if ! configure_network; then
     return 1
@@ -29,10 +29,10 @@ setup() {
 }
 
 configure_network() {
-  # if ! xe_cleanup_network; then
-  #   logFatal "Failed to cleanup networks"
-  #   return 1
-  # fi
+  if ! xe_cleanup_network; then
+    logFatal "Failed to cleanup networks"
+    return 1
+  fi
 
   # Load network configuration
   if ! config_load "${DIR_QNAP}/data/hardware.env"; then
@@ -49,10 +49,10 @@ configure_network() {
   logInfo "Management NIC: ${MGT_NIC} (${mgt_mac})"
   logInfo "Network NIC: ${NET_NIC} (${net_mac})"
 
-  # if ! xe_vlan_config "${net_mac}" "${NETS}"; then
-  #   logFatal "Failed to configure network interface"
-  #   return 1
-  # fi
+  if ! xe_vlan_config "${net_mac}" "${NETS}"; then
+    logFatal "Failed to configure network interface"
+    return 1
+  fi
 
   # Wait for the device to appear on the network
   if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
@@ -128,14 +128,16 @@ sdq_config() {
 }
 
 # External variables
-DIR_QNAP=""
-DIR_SETUP=""
-DIR_XAPI=""
-XEN_MGT=""
-XEN_HOST=""
-XEN_GW=""
-MGT_NIC=""
-NET_NIC=""
+if [[ -z "${DIR_QNAP}" ]]; then DIR_QNAP=""; fi
+if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
+if [[ -z "${DIR_XAPI}" ]]; then DIR_XAPI=""; fi
+if [[ -z "${XEN_MGT}" ]]; then XEN_MGT=""; fi
+if [[ -z "${XEN_HOST}" ]]; then XEN_HOST=""; fi
+if [[ -z "${XEN_GW}" ]]; then XEN_GW=""; fi
+if [[ -z "${MGT_NIC}" ]]; then MGT_NIC=""; fi
+if [[ -z "${NET_NIC}" ]]; then NET_NIC=""; fi
+if [[ -z "${NETS}" ]]; then NETS=""; fi
+if [[ -z "${POOL_NAME}" ]]; then POOL_NAME=""; fi
 
 # Constants
 LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
