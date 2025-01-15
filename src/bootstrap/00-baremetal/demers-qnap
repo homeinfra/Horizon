@@ -5,7 +5,16 @@
 # It takes over once the OS has already performed the following:
 # 1. Installed the OS (XCP-ng) on baremetal
 # 2. Reposiory homeinfra/demers-qnap has run locally to configure the machine
-# 3. The management interface is up and reachable at IP ${TODO}
+# 3. The management interface is up and reachable at IP ${XEN_MGT}
+#
+# It will then perform the following:
+# 1. Configure QNAP's membership in the demers pool
+# 2. Configure the network interfaces, according to demers topology
+# 3. If needed, create, configure and start a VM for TrueNAS installation
+#
+# TODO:
+# - Configure NTP servers in /etc/chrony.conf
+# - TrueNAS VM
 #
 # Designed to run under the client Horizon docker container
 
@@ -25,7 +34,16 @@ setup() {
     return 1
   fi
 
+  # Start TrueNAS installation
+  if ! xe_install_truenas; then
+    return 1
+  fi
+
   logInfo "Finished executing properly"
+}
+
+xe_install_truenas() {
+  : # TODO
 }
 
 configure_network() {

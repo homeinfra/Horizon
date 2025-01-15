@@ -38,12 +38,8 @@ in the past. The third chapter is where it starts to get interesting.
 
 In the docker environment:
 
-- [ ] Configure git+ssh so we can push from the container
+- [x] Configure git+ssh so we can push from the container
 
 In the baremetal bootstrap:
 
-- [ ] Cleanup of interfaces
-- [ ] Configure PIF
-- [ ] Create and join pool as the primary master
-- [ ] Configure VLAN and pool-wide interfaces
 - [ ] Create Truenas Scale VM
