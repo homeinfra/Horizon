@@ -43,7 +43,26 @@ setup() {
 }
 
 xe_install_truenas() {
-  : # TODO
+  local res
+  xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
+  res=$?
+  if [[ ${res} -eq 1 ]]; then
+    logError "Failed to prepare VM"
+    return 1
+  elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
+    logError "Failed to attach network to VM"
+    return 1
+  elif [[ ${res} -eq 0 ]]; then
+    # Since the VM was created, we need to mount the installation ISO
+    : # TODO
+  else
+    logInfo "VM ready!"
+  fi
+
+  if ! xe_vm_start "${VM_NAME_NAS}"; then
+    logError "Failed to start VM"
+    return 1
+  fi
 }
 
 configure_network() {
@@ -122,8 +141,8 @@ sdq_config() {
 
   # Load dependencies
   # shellcheck disable=SC1091
-  if ! source "${DIR_XAPI}/src/xe_network.sh"; then
-    logError "Failed to load xe_network.sh"
+  if ! source "${DIR_XAPI}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
     return 1
   fi
   # shellcheck disable=SC1091
@@ -156,6 +175,11 @@ if [[ -z "${MGT_NIC}" ]]; then MGT_NIC=""; fi
 if [[ -z "${NET_NIC}" ]]; then NET_NIC=""; fi
 if [[ -z "${NETS}" ]]; then NETS=""; fi
 if [[ -z "${POOL_NAME}" ]]; then POOL_NAME=""; fi
+if [[ -z "${VM_NAME_NAS}" ]]; then VM_NAME_NAS=""; fi
+if [[ -z "${VM_DISK_NAS}" ]]; then VM_DISK_NAS=""; fi
+if [[ -z "${VM_RAM_NAS}" ]]; then VM_RAM_NAS=""; fi
+if [[ -z "${VM_VCPUS_NAS}" ]]; then VM_VCPUS_NAS=""; fi
+if [[ -z "${VM_NET_NAS}" ]]; then VM_NET_NAS=""; fi
 
 # Constants
 LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
