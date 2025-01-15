@@ -36,6 +36,7 @@ RUN apk add --no-cache \
   age \
   git \
   openssh \
+  sshpass \
   stunnel \
   gcompat \
   cargo \

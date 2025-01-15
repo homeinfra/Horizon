@@ -43,16 +43,19 @@ setup() {
 }
 
 xe_install_truenas() {
-  local res
+  local truenas_res
   xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
-  res=$?
-  if [[ ${res} -eq 1 ]]; then
+  truenas_res=$?
+  if [[ ${truenas_res} -eq 1 ]]; then
     logError "Failed to prepare VM"
     return 1
   elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
     logError "Failed to attach network to VM"
     return 1
-  elif [[ ${res} -eq 0 ]]; then
+  elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
+    logError "Failed to attach PCI devices to VM"
+    return 1
+  elif [[ ${truenas_res} -eq 0 ]]; then
     # Since the VM was created, we need to mount the installation ISO
     : # TODO
   else
@@ -68,12 +71,6 @@ xe_install_truenas() {
 configure_network() {
   if ! xe_cleanup_network; then
     logFatal "Failed to cleanup networks"
-    return 1
-  fi
-
-  # Load network configuration
-  if ! config_load "${DIR_QNAP}/data/hardware.env"; then
-    logFatal "Failed to load hardware configuration"
     return 1
   fi
 
@@ -162,6 +159,12 @@ sdq_config() {
   else
     logInfo "Connected successfully to demers-qnap's management interface"
   fi
+
+  # Load hardware configuration
+  if ! config_load "${DIR_QNAP}/data/hardware.env"; then
+    logFatal "Failed to load hardware configuration"
+    return 1
+  fi
 }
 
 # External variables
@@ -180,6 +183,7 @@ if [[ -z "${VM_DISK_NAS}" ]]; then VM_DISK_NAS=""; fi
 if [[ -z "${VM_RAM_NAS}" ]]; then VM_RAM_NAS=""; fi
 if [[ -z "${VM_VCPUS_NAS}" ]]; then VM_VCPUS_NAS=""; fi
 if [[ -z "${VM_NET_NAS}" ]]; then VM_NET_NAS=""; fi
+if [[ -z "${QN_STORAGE_PASS_THROUGH}" ]]; then QN_STORAGE_PASS_THROUGH=""; fi
 
 # Constants
 LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
