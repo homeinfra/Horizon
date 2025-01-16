@@ -43,44 +43,42 @@ setup() {
 }
 
 install_truenas() {
-  # local truenas_res
-  # xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
-  # truenas_res=$?
-  # if [[ ${truenas_res} -eq 1 ]]; then
-  #   logError "Failed to prepare VM"
-  #   return 1
-  # elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
-  #   logError "Failed to attach network to VM"
-  #   return 1
-  # elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
-  #   logError "Failed to attach PCI devices to VM"
-  #   return 1
-  # elif [[ ${truenas_res} -eq 0 ]]; then
-  #   if ! mount_truenas_iso; then
-  #     return 1
-  #   else
-  #     logInfo "TrueNAS Ready to install"
-  #   fi
-  # else
-  #   logInfo "VM ready!"
-  # fi
+  local truenas_res
+  xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
+  truenas_res=$?
+  if [[ ${truenas_res} -eq 1 ]]; then
+    logError "Failed to prepare VM"
+    return 1
+  elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
+    logError "Failed to attach network to VM"
+    return 1
+  elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
+    logError "Failed to attach PCI devices to VM"
+    return 1
+  elif [[ ${truenas_res} -eq 0 ]]; then
+    if ! mount_truenas_iso; then
+      return 1
+    else
+      logInfo "TrueNAS Ready to install"
+    fi
+  else
+    logInfo "VM ready!"
+  fi
 
-  # if ! xe_vm_start "${VM_NAME_NAS}"; then
-  #   logError "Failed to start VM"
-  #   return 1
-  # fi
-
-  mount_truenas_iso
+  if ! xe_vm_start "${VM_NAME_NAS}"; then
+    logError "Failed to start VM"
+    return 1
+  fi
 }
 
 mount_truenas_iso() {
-  local my_iso_url iso_name
+  local my_iso_url truenas_iso_name
 
   if ! truenas_scale_latest_url my_iso_url; then
     return 1
-  elif ! iso_populate_web iso_name "${my_iso_url}"; then
+  elif ! iso_populate_web truenas_iso_name "${my_iso_url}"; then
     return 1
-  elif ! xe_vm_iso_attach "${VM_NAME_NAS}" "${iso_name}"; then
+  elif ! xe_vm_iso_attach "${VM_NAME_NAS}" "${truenas_iso_name}"; then
     return 1
   fi
 
