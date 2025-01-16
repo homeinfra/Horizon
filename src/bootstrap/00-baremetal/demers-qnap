@@ -35,37 +35,56 @@ setup() {
   fi
 
   # Start TrueNAS installation
-  if ! xe_install_truenas; then
+  if ! install_truenas; then
     return 1
   fi
 
   logInfo "Finished executing properly"
 }
 
-xe_install_truenas() {
-  local truenas_res
-  xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
-  truenas_res=$?
-  if [[ ${truenas_res} -eq 1 ]]; then
-    logError "Failed to prepare VM"
+install_truenas() {
+  # local truenas_res
+  # xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
+  # truenas_res=$?
+  # if [[ ${truenas_res} -eq 1 ]]; then
+  #   logError "Failed to prepare VM"
+  #   return 1
+  # elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
+  #   logError "Failed to attach network to VM"
+  #   return 1
+  # elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
+  #   logError "Failed to attach PCI devices to VM"
+  #   return 1
+  # elif [[ ${truenas_res} -eq 0 ]]; then
+  #   if ! mount_truenas_iso; then
+  #     return 1
+  #   else
+  #     logInfo "TrueNAS Ready to install"
+  #   fi
+  # else
+  #   logInfo "VM ready!"
+  # fi
+
+  # if ! xe_vm_start "${VM_NAME_NAS}"; then
+  #   logError "Failed to start VM"
+  #   return 1
+  # fi
+
+  mount_truenas_iso
+}
+
+mount_truenas_iso() {
+  local my_iso_url iso_name
+
+  if ! truenas_scale_latest_url my_iso_url; then
     return 1
-  elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
-    logError "Failed to attach network to VM"
+  elif ! iso_populate_web iso_name "${my_iso_url}"; then
     return 1
-  elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
-    logError "Failed to attach PCI devices to VM"
+  elif ! xe_vm_iso_attach "${VM_NAME_NAS}" "${iso_name}"; then
     return 1
-  elif [[ ${truenas_res} -eq 0 ]]; then
-    # Since the VM was created, we need to mount the installation ISO
-    : # TODO
-  else
-    logInfo "VM ready!"
   fi
 
-  if ! xe_vm_start "${VM_NAME_NAS}"; then
-    logError "Failed to start VM"
-    return 1
-  fi
+  return 0
 }
 
 configure_network() {
@@ -147,6 +166,16 @@ sdq_config() {
     logError "Failed to load net.sh"
     return 1
   fi
+  # shellcheck disable=SC1091
+  if ! source "${DIR_SETUP}/src/web.sh"; then
+    logError "Failed to load web.sh"
+    return 1
+  fi
+  # shellcheck disable=SC1091
+  if ! source "${SDQ_ROOT}/src/utils/iso.sh"; then
+    logError "Failed to load iso.sh"
+    return 1
+  fi
 
   # Add the local xe executable to PATH
   PATH="${SDQ_ROOT}/libs/xe:${PATH}"
@@ -168,6 +197,7 @@ sdq_config() {
 }
 
 # External variables
+if [[ -z "${DIR_DOWNLOAD}" ]]; then DIR_DOWNLOAD=""; fi
 if [[ -z "${DIR_QNAP}" ]]; then DIR_QNAP=""; fi
 if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
 if [[ -z "${DIR_XAPI}" ]]; then DIR_XAPI=""; fi
