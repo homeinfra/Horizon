@@ -52,6 +52,9 @@ install_truenas() {
   elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
     logError "Failed to attach network to VM"
     return 1
+  elif ! truenas_setup_disks; then
+    logError "Failed to setup disks"
+    return 1
   elif [[ ${truenas_res} -eq 2 ]]; then
     if ! mount_truenas_iso; then
       return 1
@@ -66,6 +69,11 @@ install_truenas() {
     logError "Failed to start VM"
     return 1
   fi
+}
+
+truenas_setup_disks() {
+  : # TODO
+  return 0
 }
 
 mount_truenas_iso() {
@@ -191,7 +199,7 @@ sdq_config() {
   fi
 }
 
-# External variables
+# Variables loaded externally
 if [[ -z "${DIR_DOWNLOAD}" ]]; then DIR_DOWNLOAD=""; fi
 if [[ -z "${DIR_QNAP}" ]]; then DIR_QNAP=""; fi
 if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi

@@ -33,7 +33,7 @@ setup() {
     fi
   done
 }
-# External variables
+# Variables loaded externally
 if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
 
 # Constants
