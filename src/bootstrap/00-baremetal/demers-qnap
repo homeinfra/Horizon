@@ -52,10 +52,7 @@ install_truenas() {
   elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
     logError "Failed to attach network to VM"
     return 1
-  elif ! xe_vm_pci_attach "${VM_NAME_NAS}" "${QN_STORAGE_PASS_THROUGH}"; then
-    logError "Failed to attach PCI devices to VM"
-    return 1
-  elif [[ ${truenas_res} -eq 0 ]]; then
+  elif [[ ${truenas_res} -eq 2 ]]; then
     if ! mount_truenas_iso; then
       return 1
     else
