@@ -216,7 +216,7 @@ if [[ -z "${VM_DISK_NAS}" ]]; then VM_DISK_NAS=""; fi
 if [[ -z "${VM_RAM_NAS}" ]]; then VM_RAM_NAS=""; fi
 if [[ -z "${VM_VCPUS_NAS}" ]]; then VM_VCPUS_NAS=""; fi
 if [[ -z "${VM_NET_NAS}" ]]; then VM_NET_NAS=""; fi
-if [[ -z "${QN_STORAGE_PASS_THROUGH}" ]]; then QN_STORAGE_PASS_THROUGH=""; fi
+if [[ -z "${PCI_STORAGE}" ]]; then PCI_STORAGE=""; fi
 
 # Constants
 LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
