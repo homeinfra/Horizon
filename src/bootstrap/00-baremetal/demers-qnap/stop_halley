@@ -6,7 +6,7 @@
 plugin_halley_stop() {
   logInfo "Stopping Halley"
 
-  if ! config_load; then
+  if ! halley_config_load; then
     return 1
   fi
   if ! xe_vm_shutdown "${NAS_VM_NAME}" "force"; then
@@ -15,7 +15,7 @@ plugin_halley_stop() {
   fi
 }
 
-config_load() {
+halley_config_load() {
 
   # shellcheck disable=SC1091
   if ! config_load "${SHH_ROOT}/data/local.env"; then
@@ -33,9 +33,6 @@ config_load() {
     NAS_VM_SR="${!NAS_VM_SR}"
     if [[ -z "${NAS_VM_SR}" ]]; then
       logError "NAS_VM_SR is not set"
-      return 1
-    elif [[ -z "${DRIVE_MAX}" ]]; then
-      logError "DRIVE_MAX is not set"
       return 1
     fi
   fi
