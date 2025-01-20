@@ -24,15 +24,15 @@ setup() {
     return 1
   fi
 
-  # Create the pool if it doesn't exist already
-  if ! xe_pool_create "${POOL_NAME}"; then
-    logFatal "Failed to create pool"
-    return 1
-  fi
+  # # Create the pool if it doesn't exist already
+  # if ! xe_pool_create "${POOL_NAME}"; then
+  #   logFatal "Failed to create pool"
+  #   return 1
+  # fi
 
-  if ! configure_network; then
-    return 1
-  fi
+  # if ! configure_network; then
+  #   return 1
+  # fi
 
   # Start TrueNAS installation
   if ! install_truenas; then
@@ -44,16 +44,27 @@ setup() {
 
 install_truenas() {
   local truenas_res
+
+  if ! config_load "${SDQ_ROOT}/external/demers-qnap/data/local.env"; then
+    logFatal "Failed to load local configuration"
+    return 1
+  fi
+
+  if [[ -z "${XCP_CRITICAL_TAG}" ]]; then
+    logFatal "XCP_CRITICAL_TAG is not set. Did you load local.env?"
+    return 1
+  fi
+
   xe_vm_prepare "${VM_NAME_NAS}" "${VM_RAM_NAS}" "${VM_VCPUS_NAS}" "${VM_DISK_NAS}"
   truenas_res=$?
   if [[ ${truenas_res} -eq 1 ]]; then
     logError "Failed to prepare VM"
     return 1
+  elif ! xe_vm_tag_add "${VM_NAME_NAS}" "${XCP_CRITICAL_TAG}"; then
+    logError "Failed to tag VM as critical"
+    return 1
   elif ! xe_vm_net_attach "${VM_NAME_NAS}" "${VM_NET_NAS}"; then
     logError "Failed to attach network to VM"
-    return 1
-  elif ! truenas_setup_disks; then
-    logError "Failed to setup disks"
     return 1
   elif [[ ${truenas_res} -eq 2 ]]; then
     if ! mount_truenas_iso; then
@@ -61,19 +72,94 @@ install_truenas() {
     else
       logInfo "TrueNAS Ready to install"
     fi
-  else
-    logInfo "VM ready!"
   fi
 
-  if ! xe_vm_start "${VM_NAME_NAS}"; then
-    logError "Failed to start VM"
+  # This will start the plugin (and thus, the VM)
+  if ! update_plugin; then
     return 1
   fi
 }
 
-truenas_setup_disks() {
-  : # TODO
+update_plugin() {
+  local start_file stop_file
+  start_file="${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap/start_halley"
+  stop_file="${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap//stop_halley"
+
+  if [[ -z "${PLUGIN_DIR}" ]]; then
+    logFatal "No plugin directory set"
+    return 1
+  elif [[ -z "${QNAP_HOME}" ]]; then
+    logFatal "QNAP_HOME is not set"
+    return 1
+  elif [[ ! -f "${start_file}" ]]; then
+    logFatal "Start plugin file not found"
+    return 1
+  elif [[ ! -f "${stop_file}" ]]; then
+    logFatal "Stop plugin file not found"
+    return 1
+  fi
+
+  # Determine plugin directory
+  local plugin_dir git_root file_name tmp_file
+  plugin_dir=${PLUGIN_DIR}
+  cf_git_find_root git_root "${SDQ_SCRIPT}"
+
+  # Get plugin_dir relative to git_root
+  plugin_dir="${plugin_dir#"${git_root}"}"
+  plugin_dir="${plugin_dir#/}"
+
+  # Make it absolute to demers-qnap
+  plugin_dir="${QNAP_HOME}/${plugin_dir}"
+  logInfo "Plugin directory: ${plugin_dir}"
+
+  # Configure the plugin
+  file_name=$(basename "${start_file}")
+  if ! tmp_file=$(mktemp); then
+    logError "Failed to create temporary file"
+    return 1
+  elif ! cp "${start_file}" "${tmp_file}"; then
+    logError "Failed to copy start plugin file"
+    return 1
+  elif ! env_replace_in_place "${tmp_file}"; then
+    logError "Failed to replace env variables in start plugin file"
+    return 1
+  fi
+
+  # Install plugin
+  local uri cmd res
+  uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
+  if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_ISO_USER}" "${XEN_ISO_PWD}"; then
+    logError "Failed to upload start plugin"
+    return 1
+  fi
+  # Make the plugin executable
+  cmd=(chmod +x "${plugin_dir}/${file_name}")
+  if ! qnap_exec res "${cmd[@]}"; then
+    logError "Failed to make start plugin executable"
+    return 1
+  fi
+
   return 0
+
+  # Exexute the plugin to start the VM
+  # cmd=("${plugin_dir}/${file_name}")
+  # if ! qnap_exec res "${cmd[@]}"; then
+  #   logError "Failed to execute start plugin"
+  #   return 1
+  # fi
+}
+
+# Execute a command on qnap
+#
+# Parameters:
+#   $1[out]: command output
+#   $@[in]: command
+qnap_exec() {
+  local __ssh_res=${1}
+  shift
+
+  nu_ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" "22" "${@}"
+  return $?
 }
 
 mount_truenas_iso() {
@@ -158,6 +244,11 @@ sdq_config() {
     fi
   done
 
+  if [[ -z "${DIR_QNAP}" ]]; then
+    logFatal "DIR_QNAP is not set"
+    return 1
+  fi
+
   # Load dependencies
   # shellcheck disable=SC1091
   if ! source "${DIR_XAPI}/src/xe_vm.sh"; then
@@ -172,6 +263,11 @@ sdq_config() {
   # shellcheck disable=SC1091
   if ! source "${DIR_SETUP}/src/web.sh"; then
     logError "Failed to load web.sh"
+    return 1
+  fi
+  # shellcheck disable=SC1091
+  if ! source "${DIR_SETUP}/src/env.sh"; then
+    logError "Failed to load env.sh"
     return 1
   fi
   # shellcheck disable=SC1091
@@ -197,26 +293,54 @@ sdq_config() {
     logFatal "Failed to load hardware configuration"
     return 1
   fi
-}
 
-# Variables loaded externally
-if [[ -z "${DIR_DOWNLOAD}" ]]; then DIR_DOWNLOAD=""; fi
-if [[ -z "${DIR_QNAP}" ]]; then DIR_QNAP=""; fi
-if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
-if [[ -z "${DIR_XAPI}" ]]; then DIR_XAPI=""; fi
-if [[ -z "${XEN_MGT}" ]]; then XEN_MGT=""; fi
-if [[ -z "${XEN_HOST}" ]]; then XEN_HOST=""; fi
-if [[ -z "${XEN_GW}" ]]; then XEN_GW=""; fi
-if [[ -z "${MGT_NIC}" ]]; then MGT_NIC=""; fi
-if [[ -z "${NET_NIC}" ]]; then NET_NIC=""; fi
-if [[ -z "${NETS}" ]]; then NETS=""; fi
-if [[ -z "${POOL_NAME}" ]]; then POOL_NAME=""; fi
-if [[ -z "${VM_NAME_NAS}" ]]; then VM_NAME_NAS=""; fi
-if [[ -z "${VM_DISK_NAS}" ]]; then VM_DISK_NAS=""; fi
-if [[ -z "${VM_RAM_NAS}" ]]; then VM_RAM_NAS=""; fi
-if [[ -z "${VM_VCPUS_NAS}" ]]; then VM_VCPUS_NAS=""; fi
-if [[ -z "${VM_NET_NAS}" ]]; then VM_NET_NAS=""; fi
-if [[ -z "${PCI_STORAGE}" ]]; then PCI_STORAGE=""; fi
+  if [[ -z "${XEN_HOST}" ]]; then
+    logFatal "XEN_HOST is not set"
+    return 1
+  elif [[ -z "${XEN_USER}" ]]; then
+    logFatal "XEN_USER is not set"
+    return 1
+  elif [[ -z "${XEN_PWD}" ]]; then
+    logFatal "XEN_PWD is not set"
+    return 1
+  elif [[ -z "${XEN_ISO_USER}" ]]; then
+    logFatal "XEN_ISO_USER is not set"
+    return 1
+  elif [[ -z "${XEN_ISO_PWD}" ]]; then
+    logFatal "XEN_ISO_PWD is not set"
+    return 1
+  elif [[ -z "${XEN_MGT}" ]]; then
+    logFatal "XEN_MGT is not set"
+    return 1
+  elif [[ -z "${XEN_GW}" ]]; then
+    logFatal "XEN_GW is not set"
+    return 1
+  elif [[ -z "${MGT_NIC}" ]]; then
+    logFatal "MGT_NIC is not set"
+    return 1
+  elif [[ -z "${NET_NIC}" ]]; then
+    logFatal "NET_NIC is not set"
+    return 1
+  elif [[ -z "${NETS}" ]]; then
+    logFatal "NETS is not set"
+    return 1
+  elif [[ -z "${VM_NAME_NAS}" ]]; then
+    logFatal "VM_NAME_NAS is not set"
+    return 1
+  elif [[ -z "${VM_RAM_NAS}" ]]; then
+    logFatal "VM_RAM_NAS is not set"
+    return 1
+  elif [[ -z "${VM_VCPUS_NAS}" ]]; then
+    logFatal "VM_VCPUS_NAS is not set"
+    return 1
+  elif [[ -z "${VM_DISK_NAS}" ]]; then
+    logFatal "VM_DISK_NAS is not set"
+    return 1
+  elif [[ -z "${VM_NET_NAS}" ]]; then
+    logFatal "VM_NET_NAS is not set"
+    return 1
+  fi
+}
 
 # Constants
 LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
@@ -224,6 +348,7 @@ LOCAL_CONFIG=".config/demers.env:.config/demers-qnap.env:.config/local.env"
 ###########################
 ###### Startup logic ######
 ###########################
+SDQ_SCRIPT="${0}"
 
 # Get directory of this script
 # https://stackoverflow.com/a/246128
@@ -234,7 +359,7 @@ while [[ -L "${SDQ_SOURCE}" ]]; do # resolve $SDQ_SOURCE until the file is no lo
   [[ ${SDQ_SOURCE} != /* ]] && SDQ_SOURCE=${SDQ_ROOT}/${SDQ_SOURCE} # if $SDQ_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 SDQ_ROOT=$(cd -P "$(dirname "${SDQ_SOURCE}")" >/dev/null 2>&1 && pwd)
-SDQ_ROOT=$(realpath "${SDQ_ROOT}/../../..")
+SDQ_ROOT=$(realpath "${SDQ_ROOT}/../../../..")
 
 # Determine BPKG's global prefix
 if [[ -z "${PREFIX}" ]]; then

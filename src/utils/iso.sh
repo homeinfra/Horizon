@@ -51,10 +51,10 @@ iso_populate_web() {
   elif ! web_download iso_file "${__url}" "${DIR_DOWNLOAD}"; then
     logError "Failed to download TrueNAS ISO"
     return 1
-  elif ! nu_file_upload "${iso_file}" "${XEN_ISO_LIB}" "${XEN_ISO_USER}" "${XEN_ISO_PWD}"; then
+  elif ! nu_file_upload "${iso_file}" "${XEN_ISO_LIB}/$(basename "${iso_file}")" "${XEN_ISO_USER}" "${XEN_ISO_PWD}"; then
     logError "Failed to upload TrueNAS ISO"
     return 1
-  elif ! xe_stor_refresh "${ISO_STOR_NAME}"; then
+  elif ! xe_stor_refresh "${XCP_ISO_SR_NAME}"; then
     logError "Failed to refresh ISO SR"
     return 1
   fi
@@ -64,8 +64,17 @@ iso_populate_web() {
   return 0
 }
 
+# Retrieve the URI where ISOs should be uploaded
+#
+# Parameters:
+#   $1[out]: Upload URI
+iso_get_uri() {
+  if [[ -z "${XCP_ISO_SR_NAME}" ]]; then
+    logError "${XCP_ISO_SR_NAME} is not set"
+  fi
+}
+
 # Variables loaded externally
-if [[ -z "${ISO_STOR_NAME}" ]]; then ISO_STOR_NAME=""; fi
 if [[ -z "${XEN_ISO_LIB}" ]]; then XEN_ISO_LIB=""; fi
 if [[ -z "${XEN_ISO_USER}" ]]; then XEN_ISO_USER=""; fi
 if [[ -z "${XEN_ISO_PWD}" ]]; then XEN_ISO_PWD=""; fi
