@@ -342,9 +342,6 @@ sdq_config() {
   elif [[ -z "${POOL_NAME}" ]]; then
     logFatal "POOL_NAME is not set"
     return 1
-  elif [[ -z "${XCP_CRITICAL_TAG}" ]]; then
-    logFatal "XCP_CRITICAL_TAG is not set"
-    return 1
   fi
 }
 
