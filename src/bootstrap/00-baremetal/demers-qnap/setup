@@ -147,7 +147,7 @@ update_plugin() {
   done
 
   # Exexute the plugin to start the VM
-  cmd=("${plugin_dir}/${file_name}")
+  cmd=("${plugin_dir}/$(basename "${start_file}")")
   if ! qnap_exec res "${cmd[@]}"; then
     logError "Failed to execute start plugin"
     return 1
