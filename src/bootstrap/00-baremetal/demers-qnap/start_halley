@@ -7,14 +7,22 @@ plugin_halley_start() {
   logInfo "Starting Halley"
 
   # Load configuration
+  export LOG_LEVEL=0
+  # shellcheck disable=SC1091
   if ! config_load "${STH_ROOT}/data/local.env"; then
     return 1
   elif [[ -z "${CONFIG_DIR}" ]]; then
     logError "CONFIG_DIR is not set"
     return 1
+  elif [[ -z "${XAPI_DIR}" ]]; then
+    logError "XAPI_DIR is not set"
+    return 1
   elif ! config_load "${STH_ROOT}/data/hardware.env"; then
     return 1
   elif ! config_load "${CONFIG_DIR}/${NAS_DISK_CONFIG}"; then
+    return 1
+  elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
     return 1
   else
     NAS_VM_SR="${!NAS_VM_SR}"
@@ -109,7 +117,7 @@ plug_nas_disks() {
   return 0
 }
 
-NAS_VM_NAME="@VM_NAME_NAS@"
+NAS_VM_NAME="Halley"
 NAS_VM_SR="XCP_DRIVE_SR_NAME"
 NAS_DISK_CONFIG="nas.env"
 

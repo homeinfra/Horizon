@@ -24,15 +24,15 @@ setup() {
     return 1
   fi
 
-  # # Create the pool if it doesn't exist already
-  # if ! xe_pool_create "${POOL_NAME}"; then
-  #   logFatal "Failed to create pool"
-  #   return 1
-  # fi
+  # Create the pool if it doesn't exist already
+  if ! xe_pool_create "${POOL_NAME}"; then
+    logFatal "Failed to create pool"
+    return 1
+  fi
 
-  # if ! configure_network; then
-  #   return 1
-  # fi
+  if ! configure_network; then
+    return 1
+  fi
 
   # Start TrueNAS installation
   if ! install_truenas; then
@@ -139,14 +139,14 @@ update_plugin() {
     return 1
   fi
 
-  return 0
-
   # Exexute the plugin to start the VM
-  # cmd=("${plugin_dir}/${file_name}")
-  # if ! qnap_exec res "${cmd[@]}"; then
-  #   logError "Failed to execute start plugin"
-  #   return 1
-  # fi
+  cmd=("${plugin_dir}/${file_name}")
+  if ! qnap_exec res "${cmd[@]}"; then
+    logError "Failed to execute start plugin"
+    return 1
+  fi
+
+  return 0
 }
 
 # Execute a command on qnap
@@ -338,6 +338,15 @@ sdq_config() {
     return 1
   elif [[ -z "${VM_NET_NAS}" ]]; then
     logFatal "VM_NET_NAS is not set"
+    return 1
+  elif [[ -z "${POOL_NAME}" ]]; then
+    logFatal "POOL_NAME is not set"
+    return 1
+  elif [[ -z "${NAS_DISK_CONFIG}" ]]; then
+    logFatal "NAS_DISK_CONFIG is not set"
+    return 1
+  elif [[ -z "${XCP_CRITICAL_TAG}" ]]; then
+    logFatal "XCP_CRITICAL_TAG is not set"
     return 1
   fi
 }
