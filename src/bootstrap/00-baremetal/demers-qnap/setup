@@ -113,35 +113,38 @@ update_plugin() {
   logInfo "Plugin directory: ${plugin_dir}"
 
   # Configure the plugin
-  file_name=$(basename "${start_file}")
-  if ! tmp_file=$(mktemp); then
-    logError "Failed to create temporary file"
-    return 1
-  elif ! cp "${start_file}" "${tmp_file}"; then
-    logError "Failed to copy start plugin file"
-    return 1
-  elif ! env_replace_in_place "${tmp_file}"; then
-    logError "Failed to replace env variables in start plugin file"
-    return 1
-  fi
+  local plug_file
+  for plug_file in "${start_file}" "${stop_file}"; do
+    file_name=$(basename "${plug_file}")
+    if ! tmp_file=$(mktemp); then
+      logError "Failed to create temporary file"
+      return 1
+    elif ! cp "${plug_file}" "${tmp_file}"; then
+      logError "Failed to copy start plugin file"
+      return 1
+    elif ! env_replace_in_place "${tmp_file}"; then
+      logError "Failed to replace env variables in start plugin file"
+      return 1
+    fi
 
-  # Install plugin
-  local uri cmd res
-  uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
-  if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_ISO_USER}" "${XEN_ISO_PWD}" "force"; then
-    logError "Failed to upload start plugin"
-    return 1
-  elif ! rm "${tmp_file}"; then
-    logError "Failed to remove temporary file"
-    return 1
-  fi
+    # Install plugin
+    local uri cmd res
+    uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
+    if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_ISO_USER}" "${XEN_ISO_PWD}" "force"; then
+      logError "Failed to upload start plugin"
+      return 1
+    elif ! rm "${tmp_file}"; then
+      logError "Failed to remove temporary file"
+      return 1
+    fi
 
-  # Make the plugin executable
-  cmd=(chmod +x "${plugin_dir}/${file_name}")
-  if ! qnap_exec res "${cmd[@]}"; then
-    logError "Failed to make start plugin executable"
-    return 1
-  fi
+    # Make the plugin executable
+    cmd=(chmod +x "${plugin_dir}/${file_name}")
+    if ! qnap_exec res "${cmd[@]}"; then
+      logError "Failed to make start plugin executable"
+      return 1
+    fi
+  done
 
   # Exexute the plugin to start the VM
   cmd=("${plugin_dir}/${file_name}")
