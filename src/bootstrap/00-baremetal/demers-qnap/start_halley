@@ -117,7 +117,7 @@ plug_nas_disks() {
   return 0
 }
 
-NAS_VM_NAME="Halley"
+NAS_VM_NAME="@VM_NAME_NAS@"
 NAS_VM_SR="XCP_DRIVE_SR_NAME"
 NAS_DISK_CONFIG="nas.env"
 
