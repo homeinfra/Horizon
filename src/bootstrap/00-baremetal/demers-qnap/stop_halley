@@ -29,12 +29,6 @@ halley_config_load() {
   elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
     logError "Failed to load xe_vm.sh"
     return 1
-  else
-    NAS_VM_SR="${!NAS_VM_SR}"
-    if [[ -z "${NAS_VM_SR}" ]]; then
-      logError "NAS_VM_SR is not set"
-      return 1
-    fi
   fi
 }
 

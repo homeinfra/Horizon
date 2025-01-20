@@ -36,6 +36,12 @@
 - Configured S.M.A.R.T Test
   - Short on all 6 disk using a "Custom" schedule. Every Saturday at 8 AM
   - Long on all 6 disk using the "Monthly" schedule
+- Connected to Active Directory
+- Increased MTU to 9216
+- Enable SSH
+- Enable SMB
+- Enabled truenas_admin for ssh login
+- Created dataset: Public, Group, User and Vault, with basic ACL permissions
 
 ## TODO
 
