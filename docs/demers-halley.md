@@ -14,7 +14,7 @@
 - Configured network settings:
   - Hostname: halley
   - domain: demers.jeremfg.com
-- Configure root's email: <sol.demers.jeremfg.com@gmail.com>
+- Configure root's email: <jeremfg@gmail.com>
 - Configure email
   - Method: SMTP
   - From Email: <halley@demers.jeremfg.com>
@@ -36,13 +36,21 @@
 - Configured S.M.A.R.T Test
   - Short on all 6 disk using a "Custom" schedule. Every Saturday at 8 AM
   - Long on all 6 disk using the "Monthly" schedule
+- Make sure only one DNS server is configured: 192.168.16.11
 - Connected to Active Directory
 - Increased MTU to 9216
 - Enable SSH
 - Enable SMB
 - Enabled truenas_admin for ssh login
-- Created dataset: Public, Group, User and Vault, with basic ACL permissions
+- Created dataset: Public, Group, User, Infra and Vault, with basic ACL permissions
+- Limit DNS servers to NSSDC only, to solve alerts about AD
+- Extend GUI Session timeout to 24 hours (86400 seconds)
+- Using Windows RSAT, edit paths for mapped drives
+- Using Windows Security, fix permissions on /User/*, /Group/* and /Public
+- Using Windows Security, fix permissions on /Infra and /Vault
 
 ## TODO
 
+- Install xen guest tools
+- Configure off-site replication
 - Configure Periodic Snapshot

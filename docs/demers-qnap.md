@@ -3,13 +3,13 @@
 ## Installation instructions
 
 Many of the steps below can probably be skipped if they were already done
-in the past. The third chapter is where it starts to get interesting.
+in the past. The third section is where it starts to get interesting.
 
 ### First, bring-up the server
 
 1. Install OS manually from a USB stick, making sure of the following:
     1. The management interface is configured on interface 00:08:9b:ef:8d:72
-        (eth1)
+        (eth0)
     1. That interface is configured with static IP ${XEN_MGT}
 1. Execute the boostrapping locally or remotely via SSH
    (See repo homeinfra/demers-qnap)
@@ -30,16 +30,6 @@ in the past. The third chapter is where it starts to get interesting.
 ### Thirdly, configure demers-qnap
 
 1. Configure the demers-qnap server
-    1. `./src/host/container exec -- ./src/bootstrap/00-baremetal/demers-qnap`
-1. Deploy VMs
-    1. TBD
+    1. `./src/host/container exec -- ./src/bootstrap/00-baremetal/demers-qnap/setup`
 
 ## TODOs
-
-In the docker environment:
-
-- [x] Configure git+ssh so we can push from the container
-
-In the baremetal bootstrap:
-
-- [ ] Create Truenas Scale VM
