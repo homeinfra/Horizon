@@ -10,7 +10,6 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
             "env": {
                 "LOCAL_CONFIG": ".config/demers.env:.config/local.env"
               }

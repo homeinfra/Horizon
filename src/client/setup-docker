@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# This script is used to setup the environment for the first time inside
+# the container.
+
+setup() {
+  # Load configuration
+  if ! config_load "${SD_ROOT}/.config/default.env"; then
+    return 1
+  fi
+
+  # Load depencencies
+  # shellcheck disable=SC1091
+  if ! source "${DIR_SETUP}/src/age.sh"; then
+    logError "Failed to load age.sh"
+    return 1
+  fi
+
+  # Make sure age is configured
+  if ! age_configure "homeinfra"; then
+    return 1
+  elif ! config_save "${SD_ROOT}/.config/local.env" \
+    "SOPS_AGE_KEY_FILE" "${HOME}/.sops/homeinfra.txt"; then
+    return 1
+  fi
+
+  local configs config
+  IFS=":" read -r -a configs <<<"${LOCAL_CONFIG}"
+  for config in "${configs[@]}"; do
+    if ! config_load "${SD_ROOT}/${config}"; then
+      return 1
+    fi
+  done
+}
+# Variables loaded externally
+if [[ -z "${DIR_SETUP}" ]]; then DIR_SETUP=""; fi
+
+# Constants
+LOCAL_CONFIG=".config/local.env"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+SD_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${SD_SOURCE}" ]]; do # resolve $SD_SOURCE until the file is no longer a symlink
+  SD_ROOT=$(cd -P "$(dirname "${SD_SOURCE}")" >/dev/null 2>&1 && pwd)
+  SD_SOURCE=$(readlink "${SD_SOURCE}")
+  [[ ${SD_SOURCE} != /* ]] && SD_SOURCE=${SD_ROOT}/${SD_SOURCE} # if $SD_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SD_ROOT=$(cd -P "$(dirname "${SD_SOURCE}")" >/dev/null 2>&1 && pwd)
+SD_ROOT=$(realpath "${SD_ROOT}/../..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Import dependencies
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  setup
+  exit $?
+fi

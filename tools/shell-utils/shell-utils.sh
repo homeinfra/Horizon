@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+# shellcheck shell=bash
 # SPDX-License-Identifier: MIT
 #
 # Just some utility functions
@@ -17,14 +17,14 @@ add_env() {
   fi
 
   local rcFile="${HOME}/.bashrc"
-  local prop="$1"   # export property to insert
-  local val="$2"    # the desired value
+  local prop="$1" # export property to insert
+  local val="$2"  # the desired value
 
   if grep -q "^export ${prop}=" "${rcFile}"; then
     sed -i "s,^export ${prop}=.*$,export ${prop}=${val}," "${rcFile}"
     echo "[updated] export ${prop}=${val}"
   else
-    echo -e "export ${prop}=${val}" >> "${rcFile}"
+    echo -e "export ${prop}=${val}" >>"${rcFile}"
     echo "[inserted] export ${prop}=${val}"
   fi
 
@@ -47,7 +47,7 @@ remove_env() {
   fi
 
   local rcFile=~/.bashrc
-  local prop="POSTGRE_PORT"    # export property to delete
+  local prop="POSTGRE_PORT" # export property to delete
 
   if grep -q "^export ${prop}=" "${rcFile}"; then
     sed -i "/^export ${prop}=.*$/d" "${rcFile}"
