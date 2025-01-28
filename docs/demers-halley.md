@@ -48,9 +48,11 @@
 - Using Windows RSAT, edit paths for mapped drives
 - Using Windows Security, fix permissions on /User/*, /Group/* and /Public
 - Using Windows Security, fix permissions on /Infra and /Vault
+- Configure Apps to use Data as a pool. It will create a folder named ./ix-apps
+- Configure xen-guest-tools using docker as follows:
+  <https://forums.truenas.com/t/truenas-scale-xen-guest-additions/2434/11>
+- Setup homeinfra/demers-halley locally, see it's README.md
 
 ## TODO
 
-- Install xen guest tools
-- Configure off-site replication
 - Configure Periodic Snapshot

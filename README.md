@@ -179,31 +179,44 @@ Alexis Bouvar's observations.
 
 ## TODOs
 
-TODO For the current docker branch
+### Catch up to previous/existing work
 
-1. Do the Unbuntu deployment script.
-1. Bring up to date the Horizon deployment on Demers
+1. Configure snapshots on halley
+1. Baremetal bootstrapping of SOL
 
-TODO For mid term
+### Next steps
 
-1. Add line number support to slf4.sh
-
-TODO For long term (Finally caught up? Proceed with next steps...)
-
-1. Attempt a transition to terraform.
-1. Attempt a switch from FCOS to Talos. Apparently it even has terraform support.
-1. Deploy 2 k8s control nodes
-1. Deploy 2 k8s worker nodes
+1. Rework CoreOS install to Talos Linux instead
+1. Attempt a transition to terraform. (When XOA Lite is supported).
+1. Deploy k8s control nodes
+1. Deploy k8s worker nodes
 1. Deploy CNI calico
 1. Configure geolocation configuration (multi-site storage constraints)
 1. Deploy CSI smb
-1. Deploy bluebook
-1. Deploy XOA
 1. Deploy external ingress controller (Can publish DNS updates to Namecheap)
 1. Deploy internal ingress controller (Can configure Unboud on OPNsense)
-1. Look for a centralized logging solution (SYSLOG server? - try to have better
-   than emails)
-1. Deploy Owncould (or similar - backup pictures on cellphones automatically)
+1. Deploy XOA
+1. Deploy NetData appliance
+1. Deploy syslog-ng
+1. Automatic backup of critical infrastructure.
+   We should be doing an automatic backup of
+   OPNSense, TrueNAS, Zentyal (and switches?)
+1. Deploy bluebook
+1. Deploy Immich for Cellphone picture cloud backup
 1. Deploy Jellyfin
 1. Deploy Arrrr
+1. Deploy Torrent
 1. Deploy Home Assistant
+
+### Quality of Life improvements
+
+1. Cleanup all instances of "# Variables loaded externally",
+   to be replaced by checks for -z.
+1. Revisit all instances where we disable shellcheck warnings
+1. Enhance slf4.sh to support stack traces on logFatal
+1. Add a function to manually dump a stack trace in slf4.sh
+1. Update GUARDS everywhere to print a warning and stack trace
+1. Can we have a reusable utility function for the GUARDS?
+1. Eliminate executables that are also used as library
+1. Do the Unbuntu deployment script
+1. Replace Halley configuration from manual GUI to Automated json
