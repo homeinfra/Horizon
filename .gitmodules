@@ -2,3 +2,7 @@
 	path = external/demers-qnap
 	url = git@github.com:homeinfra/demers-qnap.git
 	branch = main
+[submodule "external/demers-sol"]
+	path = external/demers-sol
+	url = git@github.com:homeinfra/demers-sol.git
+	branch = main
