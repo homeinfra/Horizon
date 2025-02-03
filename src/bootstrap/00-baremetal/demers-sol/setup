@@ -68,7 +68,7 @@ configure_htpc() {
   elif ! xe_vm_net_attach "${HTPC_VM_NAME}" "${HTPC_VM_NET}"; then
     logError "Failed to attach network to VM"
     return 1
-  elif ! xe_vm_pci_attach "${HTPC_VM_NAME}" "${PCI_USB_CONTROLLER},${PCI_GPU}"; then
+  elif ! xe_vm_pci_attach "${HTPC_VM_NAME}" "${PCI_GPU}"; then
     logError "Failed to attach PCI device to VM"
     return 1
   elif ! install_htpc_pugins; then
@@ -252,9 +252,6 @@ sdq_config() {
     return 1
   elif [[ -z "${POOL_NAME}" ]]; then
     logError "POOL_NAME is not set"
-    return 1
-  elif [[ -z "${PCI_USB_CONTROLLER}" ]]; then
-    logError "PCI_USB_CONTROLLER is not set"
     return 1
   elif [[ -z "${PCI_GPU}" ]]; then
     logError "PCI_GPU is not set"
