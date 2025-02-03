@@ -7,7 +7,7 @@ in the past. The third section is where it starts to get inetersting.
 
 ### First, bring-up the server
 
-1. Install OS manually from virtually mounting the ISO via IPMI, using:
+1. Install OS manually from a USB stick, making sure of the following:
     1. The management interface is configured on interface 00:25:90:b9:25:ce
        (eth0)
     1. That interface is configured with static IP ${XEN_MGT}
