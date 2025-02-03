@@ -182,7 +182,6 @@ Alexis Bouvar's observations.
 ### Catch up to previous/existing work
 
 1. Create Kosmos VM
-1. Download xe instead of using a locally provided one
 1. Connect SOL and QNAP together in a pool
 1. Complete startup/shutdown logic with UPS
 
