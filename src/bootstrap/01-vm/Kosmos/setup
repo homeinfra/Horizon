@@ -19,32 +19,19 @@ configure_htpc() {
   elif ! xe_vm_pci_attach "${HTPC_VM_NAME}" "${PCI_GPU}"; then
     logError "Failed to attach PCI device to VM"
     return 1
-  elif ! htpc_usb_setup; then
+  elif ! htpc_usb_mount; then
     logError "Failed to setup USB passthrough"
-    return 1
-  elif ! install_htpc_pugins; then
     return 1
   elif ! xe_vm_start "${HTPC_VM_NAME}"; then
     logError "Failed to start ${HTPC_VM_NAME}"
+    return 1
+  elif ! install_htpc_pugins; then
     return 1
   else
     logInfo "HTPC Ready to install"
   fi
 
   return 0
-}
-
-htpc_usb_setup() {
-  local htpc_usb_devices
-
-  IFS="," read -r -a htpc_usb_devices <<<"${USB_DEVICES}"
-  if ! passthrough_usb_configure "${htpc_usb_devices[@]}"; then
-    logError "Failed to configure USB devices"
-    return 1
-  elif ! htpc_usb_mount; then
-    logError "Failed to mount USB devices"
-    return 1
-  fi
 }
 
 htpc_usb_mount() {
@@ -102,8 +89,23 @@ load_configuration() {
   if [[ -z "${DIR_SOL}" ]]; then
     logError "DIR_SOL is not set"
     return 1
-  elif [[ -z "${PCI_GPU}" ]]; then
-    logError "PCI_GPU is not set"
+  elif [[ -z "${DIR_SETUP}" ]]; then
+    logError "DIR_SETUP is not set"
+    return 1
+  elif [[ -z "${DIR_XAPI}" ]]; then
+    logError "DIR_XAPI is not set"
+    return 1
+  elif [[ -z "${DIR_BIN}" ]]; then
+    logError "DIR_BIN is not set"
+    return 1
+  elif [[ -z "${XEN_HOST}" ]]; then
+    logError "XEN_HOST is not set"
+    return 1
+  elif [[ -z "${XEN_USER}" ]]; then
+    logError "XEN_USER is not set"
+    return 1
+  elif [[ -z "${XEN_PWD}" ]]; then
+    logError "XEN_PWD is not set"
     return 1
   elif [[ -z "${HTPC_VM_NAME}" ]]; then
     logError "HTPC_VM_NAME is not set"
@@ -126,9 +128,39 @@ load_configuration() {
   elif ! config_load "${DIR_SOL}/data/hardware.env"; then
     logError "Failed to load hardware configuration"
     return 1
+  elif [[ -z "${PCI_GPU}" ]]; then
+    logError "PCI_GPU is not set"
+    return 1
   elif [[ -z "${USB_DEVICES}" ]]; then
     logError "USB_DEVICES is not set"
     return 1
+  fi
+
+  # shellcheck disable=SC1091
+  if ! source "${DIR_XAPI}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
+    return 1
+  elif ! source "${DIR_SETUP}/src/net.sh"; then
+    logError "Failed to load net.sh"
+    return 1
+  fi
+
+  # Download XE CLI utility
+  if ! nu_file_download "${DIR_BIN}/xe" "scp://${XEN_HOST}:22/opt/xensource/bin/xe" \
+    "${XEN_USER}" "${XEN_PWD}"; then
+    logFatal "Failed to download xe"
+    return 1
+  fi
+
+  # Configure it into PATH
+  PATH="${DIR_BIN}:${PATH}"
+  export PATH
+
+  if ! xe_create_connection "${XEN_HOST}"; then
+    logError "Failed to connect to demers-qnap's management interface"
+    return 1
+  else
+    logInfo "Connected successfully to demers-qnap's management interface"
   fi
 }
 
