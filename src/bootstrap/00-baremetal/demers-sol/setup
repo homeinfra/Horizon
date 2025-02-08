@@ -27,9 +27,6 @@ setup() {
   if ! configure_network; then
     logError "Failed to configure network"
     return 1
-  elif ! configure_htpc; then
-    logError "Failed to configure HTPC"
-    return 1
   fi
 
   # # Create the pool if it doesn't exist already
@@ -44,44 +41,6 @@ setup() {
   # fi
 
   logInfo "Finished executing properly"
-}
-
-configure_htpc() {
-  if [[ -z "${HTPC_VM_NAME}" ]]; then
-    logError "HTPC_VM_NAME is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_RAM}" ]]; then
-    logError "HTPC_VM_RAM is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_VCPUS}" ]]; then
-    logError "HTPC_VM_VCPUS is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_DISK}" ]]; then
-    logError "HTPC_VM_DISK is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_NET}" ]]; then
-    logError "HTPC_VM_NET is not set"
-    return 1
-  elif ! xe_vm_prepare "${HTPC_VM_NAME}" "${HTPC_VM_RAM}" "${HTPC_VM_VCPUS}" "${HTPC_VM_DISK}"; then
-    logError "Failed to prepare ${HTPC_VM_NAME} VM"
-    return 1
-  elif ! xe_vm_net_attach "${HTPC_VM_NAME}" "${HTPC_VM_NET}"; then
-    logError "Failed to attach network to VM"
-    return 1
-  elif ! xe_vm_pci_attach "${HTPC_VM_NAME}" "${PCI_GPU}"; then
-    logError "Failed to attach PCI device to VM"
-    return 1
-  elif ! install_htpc_pugins; then
-    return 1
-  else
-    logInfo "HTPC Ready to install"
-  fi
-
-  return 0
-}
-
-install_htpc_pugins() {
-  return 2
 }
 
 configure_network() {
@@ -252,24 +211,6 @@ sdq_config() {
     return 1
   elif [[ -z "${POOL_NAME}" ]]; then
     logError "POOL_NAME is not set"
-    return 1
-  elif [[ -z "${PCI_GPU}" ]]; then
-    logError "PCI_GPU is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_NAME}" ]]; then
-    logError "HTPC_VM_NAME is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_RAM}" ]]; then
-    logError "HTPC_VM_RAM is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_VCPUS}" ]]; then
-    logError "HTPC_VM_VCPUS is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_DISK}" ]]; then
-    logError "HTPC_VM_DISK is not set"
-    return 1
-  elif [[ -z "${HTPC_VM_NET}" ]]; then
-    logError "HTPC_VM_NET is not set"
     return 1
   fi
 }
