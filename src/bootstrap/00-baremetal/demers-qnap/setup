@@ -20,13 +20,13 @@
 
 setup() {
   if ! sdq_config; then
-    logFatal "Failed to configure"
+    logError "Failed to configure"
     return 1
   fi
 
   # Create the pool if it doesn't exist already
   if ! xe_pool_create "${POOL_NAME}"; then
-    logFatal "Failed to create pool"
+    logError "Failed to create pool"
     return 1
   fi
 
@@ -46,12 +46,12 @@ install_truenas() {
   local truenas_res
 
   if ! config_load "${SDQ_ROOT}/external/demers-qnap/data/local.env"; then
-    logFatal "Failed to load local configuration"
+    logError "Failed to load local configuration"
     return 1
   fi
 
   if [[ -z "${XCP_CRITICAL_TAG}" ]]; then
-    logFatal "XCP_CRITICAL_TAG is not set. Did you load local.env?"
+    logError "XCP_CRITICAL_TAG is not set. Did you load local.env?"
     return 1
   fi
 
@@ -81,23 +81,23 @@ install_truenas() {
 }
 
 update_plugin() {
-  local start_file stop_file
-  start_file="${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap/start_halley"
-  stop_file="${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap//stop_halley"
-
   if [[ -z "${PLUGIN_DIR}" ]]; then
-    logFatal "No plugin directory set"
+    logError "No plugin directory set"
     return 1
   elif [[ -z "${QNAP_HOME}" ]]; then
-    logFatal "QNAP_HOME is not set"
-    return 1
-  elif [[ ! -f "${start_file}" ]]; then
-    logFatal "Start plugin file not found"
-    return 1
-  elif [[ ! -f "${stop_file}" ]]; then
-    logFatal "Stop plugin file not found"
+    logError "QNAP_HOME is not set"
     return 1
   fi
+
+  # Find plugin files
+  local files=()
+  local file
+  for file in "${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap/plugins/"*; do
+    # Only keep files that start with start_, stop_ and power_
+    if [[ $(basename "${file}") =~ ^(start_|stop_|power_).* ]]; then
+      files+=("${file}")
+    fi
+  done
 
   # Determine plugin directory
   local plugin_dir git_root file_name tmp_file
@@ -114,7 +114,7 @@ update_plugin() {
 
   # Configure the plugin
   local plug_file
-  for plug_file in "${start_file}" "${stop_file}"; do
+  for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
     if ! tmp_file=$(mktemp); then
       logError "Failed to create temporary file"
@@ -130,7 +130,7 @@ update_plugin() {
     # Install plugin
     local uri cmd res
     uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
-    if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_ISO_USER}" "${XEN_ISO_PWD}" "force"; then
+    if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_USER}" "${XEN_PWD}" "force"; then
       logError "Failed to upload start plugin"
       return 1
     elif ! rm "${tmp_file}"; then
@@ -185,7 +185,7 @@ mount_truenas_iso() {
 
 configure_network() {
   if ! xe_cleanup_network; then
-    logFatal "Failed to cleanup networks"
+    logError "Failed to cleanup networks"
     return 1
   fi
 
@@ -199,7 +199,7 @@ configure_network() {
   logInfo "Network NIC: ${NET_NIC} (${net_mac})"
 
   if ! xe_vlan_config "${net_mac}" "${NETS}"; then
-    logFatal "Failed to configure network interface"
+    logError "Failed to configure network interface"
     return 1
   fi
 
@@ -213,7 +213,7 @@ configure_network() {
 
   # Reconfigure to use the dynamic interface, so we can reconfigure the mgt one
   if ! xe_create_connection "${XEN_HOST}"; then
-    logFatal "Failed to connect to demers-qnap"
+    logError "Failed to connect to demers-qnap"
     return 1
   else
     logInfo "Connected successfully to demers-qnap"
@@ -252,7 +252,7 @@ sdq_config() {
   done
 
   if [[ -z "${DIR_QNAP}" ]]; then
-    logFatal "DIR_QNAP is not set"
+    logError "DIR_QNAP is not set"
     return 1
   fi
 
@@ -289,7 +289,7 @@ sdq_config() {
 
   # Test connection to the management interface of demers-qnap
   if ! xe_create_connection "${XEN_MGT}"; then
-    logFatal "Failed to connect to demers-qnap's management interface"
+    logError "Failed to connect to demers-qnap's management interface"
     return 1
   else
     logInfo "Connected successfully to demers-qnap's management interface"
@@ -297,57 +297,57 @@ sdq_config() {
 
   # Load hardware configuration
   if ! config_load "${DIR_QNAP}/data/hardware.env"; then
-    logFatal "Failed to load hardware configuration"
+    logError "Failed to load hardware configuration"
     return 1
   fi
 
   if [[ -z "${XEN_HOST}" ]]; then
-    logFatal "XEN_HOST is not set"
+    logError "XEN_HOST is not set"
     return 1
   elif [[ -z "${XEN_USER}" ]]; then
-    logFatal "XEN_USER is not set"
+    logError "XEN_USER is not set"
     return 1
   elif [[ -z "${XEN_PWD}" ]]; then
-    logFatal "XEN_PWD is not set"
+    logError "XEN_PWD is not set"
     return 1
   elif [[ -z "${XEN_ISO_USER}" ]]; then
-    logFatal "XEN_ISO_USER is not set"
+    logError "XEN_ISO_USER is not set"
     return 1
   elif [[ -z "${XEN_ISO_PWD}" ]]; then
-    logFatal "XEN_ISO_PWD is not set"
+    logError "XEN_ISO_PWD is not set"
     return 1
   elif [[ -z "${XEN_MGT}" ]]; then
-    logFatal "XEN_MGT is not set"
+    logError "XEN_MGT is not set"
     return 1
   elif [[ -z "${XEN_GW}" ]]; then
-    logFatal "XEN_GW is not set"
+    logError "XEN_GW is not set"
     return 1
   elif [[ -z "${MGT_NIC}" ]]; then
-    logFatal "MGT_NIC is not set"
+    logError "MGT_NIC is not set"
     return 1
   elif [[ -z "${NET_NIC}" ]]; then
-    logFatal "NET_NIC is not set"
+    logError "NET_NIC is not set"
     return 1
   elif [[ -z "${NETS}" ]]; then
-    logFatal "NETS is not set"
+    logError "NETS is not set"
     return 1
   elif [[ -z "${VM_NAME_NAS}" ]]; then
-    logFatal "VM_NAME_NAS is not set"
+    logError "VM_NAME_NAS is not set"
     return 1
   elif [[ -z "${VM_RAM_NAS}" ]]; then
-    logFatal "VM_RAM_NAS is not set"
+    logError "VM_RAM_NAS is not set"
     return 1
   elif [[ -z "${VM_VCPUS_NAS}" ]]; then
-    logFatal "VM_VCPUS_NAS is not set"
+    logError "VM_VCPUS_NAS is not set"
     return 1
   elif [[ -z "${VM_DISK_NAS}" ]]; then
-    logFatal "VM_DISK_NAS is not set"
+    logError "VM_DISK_NAS is not set"
     return 1
   elif [[ -z "${VM_NET_NAS}" ]]; then
-    logFatal "VM_NET_NAS is not set"
+    logError "VM_NET_NAS is not set"
     return 1
   elif [[ -z "${POOL_NAME}" ]]; then
-    logFatal "POOL_NAME is not set"
+    logError "POOL_NAME is not set"
     return 1
   fi
 }

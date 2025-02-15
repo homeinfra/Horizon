@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# XCP-ng plugin file to configure Kosmos on shutdown
+
+plugin_losmos_stop() {
+  logInfo "Stopping Kosmos"
+
+  if ! losmos_config_load; then
+    return 1
+  fi
+  if ! xe_vm_shutdown "${HTPC_VM_NAME}" "force"; then
+    logError "Failed to shutdown VM"
+    return 1
+  fi
+}
+
+losmos_config_load() {
+
+  # shellcheck disable=SC1091
+  if ! config_load "${SHH_ROOT}/data/local.env"; then
+    return 1
+  elif [[ -z "${CONFIG_DIR}" ]]; then
+    logError "CONFIG_DIR is not set"
+    return 1
+  elif [[ -z "${XAPI_DIR}" ]]; then
+    logError "XAPI_DIR is not set"
+    return 1
+  elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
+    return 1
+  fi
+}
+
+HTPC_VM_NAME="@VM_NAME_HTPC@"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+SHH_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${SHH_SOURCE}" ]]; do # resolve $SHH_SOURCE until the file is no longer a symlink
+  SHH_ROOT=$(cd -P "$(dirname "${SHH_SOURCE}")" >/dev/null 2>&1 && pwd)
+  SHH_SOURCE=$(readlink "${SHH_SOURCE}")
+  [[ ${SHH_SOURCE} != /* ]] && SHH_SOURCE=${SHH_ROOT}/${SHH_SOURCE} # if $SHH_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SHH_ROOT=$(cd -P "$(dirname "${SHH_SOURCE}")" >/dev/null 2>&1 && pwd)
+SHH_ROOT=$(realpath "${SHH_ROOT}/../..")
+
+# Determine BPKG's global prefix
+if [[ -z "${PREFIX}" ]]; then
+  if [[ $(id -u || true) -eq 0 ]]; then
+    PREFIX="/usr/local"
+  else
+    PREFIX="${HOME}/.local"
+  fi
+fi
+
+# Import dependencies
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/slf4.sh"; then
+  echo "Failed to import slf4.sh"
+  exit 1
+fi
+# shellcheck disable=SC1091
+if ! source "${PREFIX}/lib/config.sh"; then
+  logFatal "Failed to import config.sh"
+fi
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  plugin_losmos_stop
+  exit $?
+fi

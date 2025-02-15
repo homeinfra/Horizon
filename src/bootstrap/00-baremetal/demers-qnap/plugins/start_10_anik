@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# Script executed on startup to configure the system on bootup
+
+startup_main() {
+  if ! startup_config; then
+    logError "Failed to configure startup"
+    return 1
+  fi
+
+  if ! xe_vm_start "${ANIK_VM_NAME}"; then
+    logError "Failed to start VM"
+    return 1
+  elif ! nu_wait_ping "${ANIK_IP_ADDR}" 300; then
+    logError "Failed to ping Anik"
+    return 1
+  elif ! nu_wait_web "${ANIK_WEBPAGE}" 200 300; then
+    logError "Failed to reach Anik's webpage"
+    return 1
+  elif ! nu_wait_dns "${ANIK_FQDN}" "" 300; then
+    logError "Failed to resolve Anik's FQDN"
+    return 1
+  else
+    logInfo "Anik Ready"
+  fi
+}
+
+startup_config() {
+  # Determine BPKG's global prefix
+  if [[ -z "${PREFIX}" ]]; then
+    if [[ $(id -u || true) -eq 0 ]]; then
+      PREFIX="/usr/local"
+    else
+      PREFIX="${HOME}/.local"
+    fi
+  fi
+
+  export LOG_LEVEL=0
+  # shellcheck disable=SC1091
+  if ! source "${PREFIX}/lib/slf4.sh"; then
+    echo "Failed to import slf4.sh"
+    return 1
+  elif ! source "${PREFIX}/lib/config.sh"; then
+    logError "Failed to import config.sh"
+    return 1
+  elif ! config_load "${STP_ROOT}/data/local.env"; then
+    return 1
+  elif [[ -z "${XAPI_DIR}" ]]; then
+    logError "XAPI_DIR is not set"
+    return 1
+  elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
+    return 1
+  else
+    kosmos_usb_setup
+  fi
+}
+
+# Constants
+ANIK_VM_NAME="@VM_NAME_ANIK@"
+ANIK_IP_ADDR="@IP_ADDR_ANIK@"
+ANIK_FQDN="@FQDN_ANIK@"
+ANIK_WEBPAGE="https://@IP_ADDR_ANIK@:443"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+STP_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${STP_SOURCE}" ]]; do # resolve $STP_SOURCE until the file is no longer a symlink
+  STP_ROOT=$(cd -P "$(dirname "${STP_SOURCE}")" >/dev/null 2>&1 && pwd)
+  STP_SOURCE=$(readlink "${STP_SOURCE}")
+  [[ ${STP_SOURCE} != /* ]] && STP_SOURCE=${STP_ROOT}/${STP_SOURCE} # if $STP_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+STP_ROOT=$(cd -P "$(dirname "${STP_SOURCE}")" >/dev/null 2>&1 && pwd)
+STP_ROOT=$(realpath "${STP_ROOT}/../..")
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  startup_main
+  exit $?
+fi

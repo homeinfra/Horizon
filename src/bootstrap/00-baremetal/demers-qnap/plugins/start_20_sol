@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# Script executed on startup to configure the system on bootup
+
+startup_main() {
+  if ! startup_config; then
+    logError "Failed to configure startup"
+    return 1
+  fi
+
+  # Make sure we can reach IPMI
+  if ! ipmi_wait_ping "${SOL_IPMI_IP}" 300; then
+    logError "Failed to ping IPMI"
+    return 1
+  elif ! ipmi_wait_dns "${SOL_IPMI_FQDN}" "" 300; then
+    logError "Failed to resolve IPMI's FQDN"
+    return 1
+  elif ! ipmi_wait_web "${SOL_IPMI_WEBPAGE}" 200 300; then
+    logError "Failed to reach IPMI's webpage"
+    return 1
+  else
+    logInfo "IPMI Ready"
+  fi
+
+  if ! ipmi_connect "${SOL_IPMI_FQDN}" "${SOL_IPMI_USER}" "${SOL_IPMI_PWD}"; then
+    logError "Failed to connect to IPMI"
+    return 1
+  else
+    logInfo "Connected to IPMI"
+  fi
+
+  # Check the power state
+  local state
+  if ! ipmi_power_status state; then
+    logError "Failed to get power status"
+    return 1
+  elif [[ "${state}" == "off" ]]; then
+    if ! ipmi_power_on; then
+      logError "Failed to power on"
+      return 1
+    else
+      logInfo "Powered on"
+      return 0
+    fi
+  elif [[ "${state}" == "on" ]]; then
+    logInfo "Already powered on"
+  else
+    logError "Unknown power state: ${state}"
+    return 1
+  fi
+
+  # If we reach here, the system is already powered on in steady state
+  # We will have to invoke startup scripts ourselves
+  if ! nu_wait_ping "${SOL_SSH_IP}" 300; then
+    logError "Failed to ping SSH"
+    return 1
+  elif ! nu_wait_dns "${SOL_SSH_FQDN}" "" 300; then
+    logError "Failed to resolve SSH's FQDN"
+    return 1
+  elif ! nu_wait_web "${SOL_SSH_WEBPAGE}" 200 300; then
+    logError "Failed to reach SSH's webpage"
+    return 1
+  else
+    logInfo "SSH Ready"
+  fi
+
+  local cmd_res
+  if ! nu_ssh_exec cmd_res "${SOL_SSH_USER}" "" "${SOL_SSH_FQDN}" 22 "${SOL_SSH_CMD_START}"; then
+    logError "Failed to run remote start scripts: ${cmd_res}"
+    return 1
+  else
+    logInfo "Remote started"
+  fi
+
+  return 0
+}
+
+startup_config() {
+  # Determine BPKG's global prefix
+  if [[ -z "${PREFIX}" ]]; then
+    if [[ $(id -u || true) -eq 0 ]]; then
+      PREFIX="/usr/local"
+    else
+      PREFIX="${HOME}/.local"
+    fi
+  fi
+
+  export LOG_LEVEL=0
+  # shellcheck disable=SC1091
+  if ! source "${PREFIX}/lib/slf4.sh"; then
+    echo "Failed to import slf4.sh"
+    return 1
+  elif ! source "${PREFIX}/lib/config.sh"; then
+    logError "Failed to import config.sh"
+    return 1
+  elif ! config_load "${STP_ROOT}/data/local.env"; then
+    return 1
+  elif [[ -z "${SETUP_DIR}" ]]; then
+    logError "SETUP_DIR is not set"
+    return 1
+  elif ! source "${SETUP_DIR}/src/ipmi.sh"; then
+    logError "Failed to load ipmi.sh"
+    return 1
+  fi
+}
+
+# Constants
+SOL_IPMI_IP="@SOL_IPMI_IP@"
+SOL_IPMI_FQDN="@SOL_IPMI_FQDN@"
+SOL_IPMI_USER="@SOL_IPMI_USER@"
+SOL_IPMI_PWD="@SOL_IPMI_PWD@"
+SOL_IPMI_WEBPAGE="https://@SOL_IPMI_FQDN@"
+SOL_SSH_IP="@SOL_SSH_IP@"
+SOL_SSH_FQDN="@SOL_SSH_FQDN@"
+SOL_SSH_WEBPAGE="https://@SOL_SSH_FQDN@"
+SOL_SSH_USER="@SOL_SSH_USER@"
+SOL_SSH_CMD_START="@SOL_SSH_CMD_START@"
+
+###########################
+###### Startup logic ######
+###########################
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+STP_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${STP_SOURCE}" ]]; do # resolve $STP_SOURCE until the file is no longer a symlink
+  STP_ROOT=$(cd -P "$(dirname "${STP_SOURCE}")" >/dev/null 2>&1 && pwd)
+  STP_SOURCE=$(readlink "${STP_SOURCE}")
+  [[ ${STP_SOURCE} != /* ]] && STP_SOURCE=${STP_ROOT}/${STP_SOURCE} # if $STP_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+STP_ROOT=$(cd -P "$(dirname "${STP_SOURCE}")" >/dev/null 2>&1 && pwd)
+STP_ROOT=$(realpath "${STP_ROOT}/../..")
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  startup_main
+  exit $?
+fi

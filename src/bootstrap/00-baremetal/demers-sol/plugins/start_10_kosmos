@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# XCP-ng plugin file to configure Kosmos on startup
+
+kosmos_startup() {
+  if ! kosmos_config; then
+    return 1
+  elif ! xe_vm_pci_attach "${HTPC_VM_NAME}" "${PCI_GPU}"; then
+    return 1
+  elif ! kosmos_usb_setup; then
+    return 1
+  elif ! xe_vm_start "${HTPC_VM_NAME}"; then
+    return 1
+  elif ! nu_wait_dns "${HTPC_FQDN}" "" 300; then
+    return 1
+  elif ! nu_wait_ping "${HTPC_FQDN}" 300; then
+    return 1
+  else
+    logInfo "Kosmos Ready"
+  fi
+}
+
+kosmos_usb_setup() {
+  local htpc_usb_devices
+  IFS="," read -r -a htpc_usb_devices <<<"${USB_DEVICES}"
+
+  local var_usb_vid var_usb_pid var_usb_sn
+  for device in "${htpc_usb_devices[@]}"; do
+    var_usb_vid="UDEV_VID_${device}"
+    var_usb_pid="UDEV_PID_${device}"
+    var_usb_sn="UDEV_SN_${device}"
+
+    if xe_vm_usb_attach "${HTPC_VM_NAME}" "${!var_usb_vid}" "${!var_usb_pid}" "${!var_usb_sn}"; then
+      logInfo "Attached USB device ${device} to ${HTPC_VM_NAME}"
+    else
+      logError "Failed to attach USB device ${device} to ${HTPC_VM_NAME}"
+      return 1
+    fi
+  done
+}
+
+kosmos_config() {
+  # Determine BPKG's global prefix
+  if [[ -z "${PREFIX}" ]]; then
+    if [[ $(id -u || true) -eq 0 ]]; then
+      PREFIX="/usr/local"
+    else
+      PREFIX="${HOME}/.local"
+    fi
+  fi
+
+  export LOG_LEVEL=0
+  # shellcheck disable=SC1091
+  if ! source "${PREFIX}/lib/slf4.sh"; then
+    echo "Failed to import slf4.sh"
+    return 1
+  elif ! source "${PREFIX}/lib/config.sh"; then
+    logError "Failed to import config.sh"
+    return 1
+  elif ! config_load "${KOS_ROOT}/data/local.env"; then
+    return 1
+  elif ! config_load "${KOS_ROOT}/data/hardware.env"; then
+    return 1
+  elif [[ -z "${USB_DEVICES}" ]]; then
+    logError "USB_DEVICES is not set"
+    return 1
+  elif [[ -z "${PCI_GPU}" ]]; then
+    logError "PCI_GPU is not set"
+    return 1
+  elif [[ -z "${XAPI_DIR}" ]]; then
+    logError "XAPI_DIR is not set"
+    return 1
+  elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
+    logError "Failed to load xe_vm.sh"
+    return 1
+  else
+    kosmos_usb_setup
+  fi
+}
+
+HTPC_VM_NAME="@VM_NAME_KOSMOS@"
+HTPC_FQDN="@FQDN_KOSMOS@"
+
+###########################
+###### Startup logic ######
+###########################
+# KOS_SCRIPT="${0}"
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+KOS_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${KOS_SOURCE}" ]]; do # resolve $KOS_SOURCE until the file is no longer a symlink
+  KOS_ROOT=$(cd -P "$(dirname "${KOS_SOURCE}")" >/dev/null 2>&1 && pwd)
+  KOS_SOURCE=$(readlink "${KOS_SOURCE}")
+  [[ ${KOS_SOURCE} != /* ]] && KOS_SOURCE=${KOS_ROOT}/${KOS_SOURCE} # if $KOS_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+KOS_ROOT=$(cd -P "$(dirname "${KOS_SOURCE}")" >/dev/null 2>&1 && pwd)
+KOS_ROOT=$(realpath "${KOS_ROOT}/../../../..")
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  logFatal "This script cannot be piped"
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  logFatal "This script cannot be sourced"
+else
+  # This script was executed
+  kosmos_startup
+  exit $?
+fi

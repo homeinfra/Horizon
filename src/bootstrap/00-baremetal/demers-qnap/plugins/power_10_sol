@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+#
+# XCP-ng plugin file to shutdown demers-sol on power outage
+
+psol_main() {
+  if ! psol_prolgoue; then
+    return 1
+  fi
+  local cur_cmd
+  if ! psol_parse cur_cmd; then
+    logError "Failed to parse command"
+    return 1
+  fi
+
+  case "${cur_cmd}" in
+  disconnect)
+    psol_disconnect
+    return $?
+    ;;
+  shutdown)
+    psol_shutdown
+    return $?
+    ;;
+  wait_off)
+    psol_wait_off
+    return $?
+    ;;
+  *)
+    logError "Invalid command: ${cur_cmd}"
+    return 1
+    ;;
+  esac
+}
+
+psol_prolgoue() {
+  # Determine BPKG's global prefix
+  if [[ -z "${PREFIX}" ]]; then
+    if [[ $(id -u || true) -eq 0 ]]; then
+      PREFIX="/usr/local"
+    else
+      PREFIX="${HOME}/.local"
+    fi
+  fi
+
+  # shellcheck disable=SC1091
+  if ! source "${PREFIX}/lib/slf4.sh"; then
+    echo "Failed to import slf4.sh"
+    return 1
+  elif ! source "${PREFIX}/lib/config.sh"; then
+    logError "Failed to import config.sh"
+    return 1
+  elif ! config_load "${PSOL_ROOT}/data/local.env"; then
+    return 1
+  elif [[ -z "${SETUP_DIR}" ]]; then
+    logError "SETUP_DIR is not set"
+    return 1
+  elif ! source "${SETUP_DIR}/src/ssh.sh"; then
+    logError "Failed to import ssh.sh"
+    return 1
+  elif ! source "${SETUP_DIR}/src/ipmi.sh"; then
+    logError "Failed to import ipmi.sh"
+    return 1
+  fi
+
+  return 0
+}
+
+psol_disconnect() {
+  # Disconnect all dependencies on demers-qnap
+  if ! sol_ssh_exec dummy "${PSOL_SSH_DISC_CMD[@]}"; then
+    logError "Failed to disconnect SOL"
+    return 1
+  fi
+}
+
+psol_shutdown() {
+  # Trigger a remote shutdown and return immediately
+  if ! sol_ssh_exec dummy "${PSOL_SSH_SHUT_CMD[@]}"; then
+    logError "Failed to disconnect SOL"
+    return 1
+  fi
+}
+
+psol_wait_off() {
+  if ! ipmi_connect "${PSOL_IPMI_IP}" "${PSOL_IPMI_USER}" "${PSOL_IPMI_PWD}"; then
+    return 1
+  elif ! ipmi_wait_off "$((5 * 60))"; then
+    return 1
+  fi
+  return 0
+}
+
+sol_ssh_exec() {
+  local __stdout_result="${1}"
+  shift
+
+  local _stdout _sol_ret
+  _stdout=$(ssh_exec "${__stdout_result}" "${PSOL_SSH_USER}" "" \
+    "${PSOL_SSH_IP}" 22 "${@}")
+  _sol_ret=$?
+
+  eval "${__stdout_result}='${_stdout}'"
+
+  return "${_sol_ret}"
+}
+
+psol_parse() {
+  local __result_cmd="${1}"
+
+  if [[ ${#PSOL_ARGS[@]} -ne 1 ]]; then
+    echo "Invalid number of arguments. Expected 1, got ${#PSOL_ARGS[@]}"
+    return 1
+  fi
+
+  case "${PSOL_ARGS[0]}" in
+  disconnect | shutdown | wait_off)
+    eval "${__result_cmd}=${PSOL_ARGS[0]}"
+    return 0
+    ;;
+  -h | --help)
+    psol_usage
+    exit 0
+    ;;
+  *)
+    echo "Invalid command: ${PSOL_ARGS[0]}"
+    return 1
+    ;;
+  esac
+}
+
+psol_usage() {
+  cat <<EOF
+This script is called to remotely shutdown demers-sol
+in a multi-step process upon a power outage.
+
+Usage: ${PSOL_ME} disconnect
+       ${PSOL_ME} shutdown
+       ${PSOL_ME} wait_off
+
+Commands:
+  disconnect     Disconnect all dependencies on demers-qnap, so we can shutdown in parallel
+  shutdown       Trigger a remote shutdown and return immediately
+  wait_off       Wait for shutdown to be complete
+
+Options:
+  -h, --help     Print this help message
+EOF
+  return 0
+}
+
+# Constants
+PSOL_SSH_USER="@SOL_SSH_USER@"
+PSOL_SSH_IP="@SOL_SSH_IP@"
+PSOL_SSH_DISC_CMD=(@SOL_DISCONNECT_CMD@)
+PSOL_SSH_SHUT_CMD=(@SOL_SHUTDOWN_CMD@)
+
+PSOL_IPMI_USER="@SOL_IPMI_USER@"
+PSOL_IPMI_PWD="@SOL_IPMI_PWD@"
+PSOL_IPMI_IP="@SOL_IPMI_IP@"
+
+###########################
+###### Startup logic ######
+###########################
+PSOL_ARGS=("${@}")
+PSOL_ME="$(basename "${BASH_SOURCE[0]}")"
+
+# Get directory of this script
+# https://stackoverflow.com/a/246128
+PSOL_SOURCE=${BASH_SOURCE[0]}
+while [[ -L "${PSOL_SOURCE}" ]]; do # resolve $PSOL_SOURCE until the file is no longer a symlink
+  PSOL_ROOT=$(cd -P "$(dirname "${PSOL_SOURCE}")" >/dev/null 2>&1 && pwd)
+  PSOL_SOURCE=$(readlink "${PSOL_SOURCE}")
+  [[ ${PSOL_SOURCE} != /* ]] && PSOL_SOURCE=${PSOL_ROOT}/${PSOL_SOURCE} # if $PSOL_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+PSOL_ROOT=$(cd -P "$(dirname "${PSOL_SOURCE}")" >/dev/null 2>&1 && pwd)
+PSOL_ROOT=$(realpath "${PSOL_ROOT}/../..")
+
+if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
+  # This script was piped
+  echo "This script cannot be piped"
+  exit 1
+elif [[ ${BASH_SOURCE[0]} != "${0}" ]]; then
+  # This script was sourced
+  echo "This script cannot be sourced"
+  exit 1
+else
+  # This script was executed
+  psol_main
+  exit $?
+fi
