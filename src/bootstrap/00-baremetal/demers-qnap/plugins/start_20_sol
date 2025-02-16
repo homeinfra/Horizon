@@ -10,13 +10,13 @@ startup_main() {
   fi
 
   # Make sure we can reach IPMI
-  if ! ipmi_wait_ping "${SOL_IPMI_IP}" 300; then
+  if ! nu_wait_ping "${SOL_IPMI_IP}" 300; then
     logError "Failed to ping IPMI"
     return 1
-  elif ! ipmi_wait_dns "${SOL_IPMI_FQDN}" "" 300; then
+  elif ! nu_wait_dns "${SOL_IPMI_FQDN}" "" 300; then
     logError "Failed to resolve IPMI's FQDN"
     return 1
-  elif ! ipmi_wait_web "${SOL_IPMI_WEBPAGE}" 200 300; then
+  elif ! nu_wait_web "${SOL_IPMI_WEBPAGE}" 200 300; then
     logError "Failed to reach IPMI's webpage"
     return 1
   else
@@ -66,7 +66,7 @@ startup_main() {
   fi
 
   local cmd_res
-  if ! nu_ssh_exec cmd_res "${SOL_SSH_USER}" "" "${SOL_SSH_FQDN}" 22 "${SOL_SSH_CMD_START}"; then
+  if ! ssh_exec cmd_res "${SOL_SSH_USER}" "" "${SOL_SSH_FQDN}" 22 "${SOL_SSH_CMD_START}"; then
     logError "Failed to run remote start scripts: ${cmd_res}"
     return 1
   else
@@ -98,6 +98,9 @@ startup_config() {
     return 1
   elif [[ -z "${SETUP_DIR}" ]]; then
     logError "SETUP_DIR is not set"
+    return 1
+  elif ! source "${SETUP_DIR}/src/net.sh"; then
+    logError "Failed to load net.sh"
     return 1
   elif ! source "${SETUP_DIR}/src/ipmi.sh"; then
     logError "Failed to load ipmi.sh"

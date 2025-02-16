@@ -135,7 +135,7 @@ VM_NAME_NAS="@VM_NAME_NAS@"
 NAS_VM_SR="XCP_DRIVE_SR_NAME"
 NAS_DISK_CONFIG="nas.env"
 FQDN_NAS="@FQDN_NAS@"
-NAS_WEBPAGE="https://@FQDN_NAS@:443/ui"
+NAS_WEBPAGE="https://@FQDN_NAS@:443/ui/sessions/signin"
 
 ###########################
 ###### Startup logic ######
