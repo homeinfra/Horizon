@@ -112,10 +112,52 @@ update_plugin() {
   plugin_dir="${QNAP_HOME}/${plugin_dir}"
   logInfo "Plugin directory: ${plugin_dir}"
 
+  # Load a few variables from SOL configuration
+  if ! config_load "${SDQ_ROOT}/.config/demers-sol.env"; then
+    return 1
+  fi
+
+  # Make sure we have the required variables
+  if [[ -z "${BMC_IP}" ]]; then
+    logError "BMC_IP is not set"
+    return 1
+  elif [[ -z "${BMC_FQDN}" ]]; then
+    logError "BMC_FQDN is not set"
+    return 1
+  elif [[ -z "${BMC_USER}" ]]; then
+    logError "BMC_USER is not set"
+    return 1
+  elif [[ -z "${BMC_PWD}" ]]; then
+    logError "BMC_PWD is not set"
+    return 1
+  elif [[ -z "${SOL_HOME}" ]]; then
+    logError "SOL_HOME is not set"
+    return 1
+  fi
+
+  # Copy the few variables we need
+  export SOL_IPMI_IP="${BMC_IP}"
+  export SOL_IPMI_FQDN="${BMC_FQDN}"
+  export SOL_IPMI_USER="${BMC_USER}"
+  export SOL_IPMI_PWD="${BMC_PWD}"
+  export SOL_SSH_IP="${XEN_MGT}"
+  export SOL_SSH_FQDN="${XEN_HOST}"
+  export SOL_SSH_USER="${XEN_USER}"
+
+  export SOL_SSH_CMD_START="${SOL_HOME}/src/lifecycle/startup"
+  export SOL_DISCONNECT_CMD="\"${SOL_HOME}/src/lifecycle/shutdown\" \"qnap\""
+  export SOL_SHUTDOWN_CMD="\"${SOL_HOME}/src/lifecycle/shutdown\" \"-e\" \"local\""
+
+  # Restore original qnap configuration
+  if ! config_load "${SDQ_ROOT}/.config/demers-qnap.env"; then
+    return 1
+  fi
+
   # Configure the plugin
   local plug_file
   for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
+    logInfo "Installing plugin: ${file_name}"
     if ! tmp_file=$(mktemp); then
       logError "Failed to create temporary file"
       return 1
