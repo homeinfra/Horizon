@@ -207,7 +207,7 @@ connect_qnap_to_sol() {
 
   # Get qnap identity
   local qnap_id
-  if ! ssh_identity_create qnap_id "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" 22; then
+  if ! ssh_identity_create qnap_id "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" 22; then
     logError "Failed to create demers identity"
     return 1
   fi
