@@ -52,8 +52,6 @@ startup_config() {
   elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
     logError "Failed to load xe_vm.sh"
     return 1
-  else
-    kosmos_usb_setup
   fi
 }
 
