@@ -96,7 +96,7 @@ while [[ -L "${KOS_SOURCE}" ]]; do # resolve $KOS_SOURCE until the file is no lo
   [[ ${KOS_SOURCE} != /* ]] && KOS_SOURCE=${KOS_ROOT}/${KOS_SOURCE} # if $KOS_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 KOS_ROOT=$(cd -P "$(dirname "${KOS_SOURCE}")" >/dev/null 2>&1 && pwd)
-KOS_ROOT=$(realpath "${KOS_ROOT}/../../../..")
+KOS_ROOT=$(realpath "${KOS_ROOT}/../..")
 
 if [[ -p /dev/stdin ]] && [[ -z ${BASH_SOURCE[0]} ]]; then
   # This script was piped

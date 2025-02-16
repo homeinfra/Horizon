@@ -126,11 +126,15 @@ configure_htpc() {
 install_pugins() {
   # Find plugin files
   local files=()
+  local start_files=()
   local file
   for file in "${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-sol/plugins/"*; do
     # Only keep files that start with start_, stop_ and power_
     if [[ $(basename "${file}") =~ ^(start_|stop_|power_).* ]]; then
       files+=("${file}")
+    fi
+    if [[ $(basename "${file}") =~ ^start_.* ]]; then
+      start_files+=("${file}")
     fi
   done
 
@@ -182,6 +186,18 @@ install_pugins() {
       return 1
     fi
   done
+
+  # Start the plugins
+  for plug_file in "${start_files[@]}"; do
+    file_name=$(basename "${plug_file}")
+    logInfo "Starting plugin: ${file_name}"
+    if ! qnap_exec res "${plugin_dir}/${file_name}"; then
+      logError "Failed to start plugin"
+      return 1
+    fi
+  done
+
+  return 0
 }
 
 connect_qnap_to_sol() {

@@ -91,11 +91,15 @@ update_plugin() {
 
   # Find plugin files
   local files=()
+  local start_plugins=()
   local file
   for file in "${SDQ_ROOT}/src/bootstrap/00-baremetal/demers-qnap/plugins/"*; do
     # Only keep files that start with start_, stop_ and power_
     if [[ $(basename "${file}") =~ ^(start_|stop_|power_).* ]]; then
       files+=("${file}")
+    fi
+    if [[ $(basename "${file}") =~ ^start_.* ]]; then
+      start_plugins+=("${file}")
     fi
   done
 
@@ -188,12 +192,15 @@ update_plugin() {
     fi
   done
 
-  # Exexute the plugin to start the VM
-  cmd=("${plugin_dir}/$(basename "${start_file}")")
-  if ! qnap_exec res "${cmd[@]}"; then
-    logError "Failed to execute start plugin"
-    return 1
-  fi
+  # Start the plugins
+  # for plug_file in "${start_plugins[@]}"; do
+  #   file_name=$(basename "${plug_file}")
+  #   logInfo "Starting plugin: ${file_name}"
+  #   if ! qnap_exec res "${plugin_dir}/${file_name}"; then
+  #     logError "Failed to start plugin"
+  #     return 1
+  #   fi
+  # done
 
   return 0
 }
@@ -207,7 +214,7 @@ qnap_exec() {
   local __ssh_res=${1}
   shift
 
-  nu_ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" "22" "${@}"
+  ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" "22" "${@}"
   return $?
 }
 
@@ -246,9 +253,9 @@ configure_network() {
   fi
 
   # Wait for the device to appear on the network
-  if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
-    return 1
-  fi
+  # if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
+  #   return 1
+  # fi
   # if ! nu_wait_ping "${XEN_HOST}" "30"; then
   #   return 1
   # fi
