@@ -151,8 +151,16 @@ install_pugins() {
   plugin_dir="${SOL_HOME}/${plugin_dir}"
   logInfo "Plugin directory: ${plugin_dir}"
 
+  # Remove all prior plugins
+  local cmd res
+  cmd=(rm -rf "${plugin_dir}/*")
+  if ! sol_exec res "${cmd[@]}"; then
+    logError "Failed to remove prior plugins"
+    return 1
+  fi
+
   # Configure the plugin
-  local plug_file uri cmd res
+  local plug_file uri
   # shellcheck disable=SC2066
   for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
@@ -207,7 +215,7 @@ connect_qnap_to_sol() {
 
   # Get qnap identity
   local qnap_id
-  if ! ssh_identity_create qnap_id "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" 22; then
+  if ! ssh_identity_create qnap_id "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" 22; then
     logError "Failed to create demers identity"
     return 1
   fi
