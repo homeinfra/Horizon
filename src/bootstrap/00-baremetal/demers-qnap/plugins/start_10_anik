@@ -49,8 +49,14 @@ startup_config() {
   elif [[ -z "${XAPI_DIR}" ]]; then
     logError "XAPI_DIR is not set"
     return 1
+  elif [[ -z "${SETUP_DIR}" ]]; then
+    logError "SETUP_DIR is not set"
+    return 1
   elif ! source "${XAPI_DIR}/src/xe_vm.sh"; then
     logError "Failed to load xe_vm.sh"
+    return 1
+  elif ! source "${SETUP_DIR}/src/net.sh"; then
+    logError "Failed to load net.sh"
     return 1
   fi
 }
