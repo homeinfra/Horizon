@@ -152,7 +152,7 @@ install_pugins() {
   logInfo "Plugin directory: ${plugin_dir}"
 
   # Configure the plugin
-  local plug_file
+  local plug_file uri cmd res
   # shellcheck disable=SC2066
   for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
@@ -169,7 +169,6 @@ install_pugins() {
     fi
 
     # Install plugin
-    local uri cmd res
     uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
     if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_USER}" "${XEN_PWD}" "force"; then
       logError "Failed to upload start plugin"
@@ -191,7 +190,7 @@ install_pugins() {
   for plug_file in "${start_files[@]}"; do
     file_name=$(basename "${plug_file}")
     logInfo "Starting plugin: ${file_name}"
-    if ! qnap_exec res "${plugin_dir}/${file_name}"; then
+    if ! sol_exec res "${plugin_dir}/${file_name}"; then
       logError "Failed to start plugin"
       return 1
     fi

@@ -158,7 +158,7 @@ update_plugin() {
   fi
 
   # Configure the plugin
-  local plug_file
+  local plug_file uri cmd res
   for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
     logInfo "Installing plugin: ${file_name}"
@@ -174,8 +174,7 @@ update_plugin() {
     fi
 
     # Install plugin
-    local uri cmd res
-    uri="scp://${XEN_MGT}:22${plugin_dir}/${file_name}"
+    uri="scp://${XEN_HOST}:22${plugin_dir}/${file_name}"
     if ! nu_file_upload "${tmp_file}" "${uri}" "${XEN_USER}" "${XEN_PWD}" "force"; then
       logError "Failed to upload start plugin"
       return 1
@@ -193,14 +192,14 @@ update_plugin() {
   done
 
   # Start the plugins
-  # for plug_file in "${start_plugins[@]}"; do
-  #   file_name=$(basename "${plug_file}")
-  #   logInfo "Starting plugin: ${file_name}"
-  #   if ! qnap_exec res "${plugin_dir}/${file_name}"; then
-  #     logError "Failed to start plugin"
-  #     return 1
-  #   fi
-  # done
+  for plug_file in "${start_plugins[@]}"; do
+    file_name=$(basename "${plug_file}")
+    logInfo "Starting plugin: ${file_name}"
+    if ! qnap_exec res "${plugin_dir}/${file_name}"; then
+      logError "Failed to start plugin"
+      return 1
+    fi
+  done
 
   return 0
 }
@@ -214,7 +213,7 @@ qnap_exec() {
   local __ssh_res=${1}
   shift
 
-  ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" "22" "${@}"
+  ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" "22" "${@}"
   return $?
 }
 
@@ -253,20 +252,20 @@ configure_network() {
   fi
 
   # Wait for the device to appear on the network
-  # if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
-  #   return 1
-  # fi
-  # if ! nu_wait_ping "${XEN_HOST}" "30"; then
-  #   return 1
-  # fi
+  if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
+    return 1
+  fi
+  if ! nu_wait_ping "${XEN_HOST}" "30"; then
+    return 1
+  fi
 
-  # # Reconfigure to use the dynamic interface, so we can reconfigure the mgt one
-  # if ! xe_create_connection "${XEN_HOST}"; then
-  #   logError "Failed to connect to demers-qnap"
-  #   return 1
-  # else
-  #   logInfo "Connected successfully to demers-qnap"
-  # fi
+  # Reconfigure to use the dynamic interface, so we can reconfigure the mgt one
+  if ! xe_create_connection "${XEN_HOST}"; then
+    logError "Failed to connect to demers-qnap"
+    return 1
+  else
+    logInfo "Connected successfully to demers-qnap"
+  fi
 
   # Reconfigure the management interface
   # For some reasons, even tho the command works fine, it returns 1
