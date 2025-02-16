@@ -9,16 +9,16 @@ startup_main() {
     return 1
   fi
 
-  if ! xe_vm_start "${NSSDC_VM_NAME}"; then
+  if ! xe_vm_start "${VM_NAME_DC}"; then
     logError "Failed to start VM"
     return 1
-  elif ! nu_wait_ping "${NSSDC_IP_ADDR}" 300; then
+  elif ! nu_wait_ping "${IP_ADDR_DC}" 300; then
     logError "Failed to ping NSSDC"
     return 1
-  elif ! nu_wait_dns "${NSSDC_FQDN}" "" 300; then
+  elif ! nu_wait_dns "${FQDN_DC}" "" 300; then
     logError "Failed to resolve NSSDC's FQDN"
     return 1
-  elif ! nu_wait_web "${NSSDC_WEBPAGE}" 200 300; then
+  elif ! nu_wait_web "${WEBPAGE_DC}" 200 300; then
     logError "Failed to reach NSSDC's webpage"
     return 1
   else
@@ -58,10 +58,10 @@ startup_config() {
 }
 
 # Constants
-NSSDC_VM_NAME="@VM_NAME_NSSDC@"
-NSSDC_IP_ADDR="@IP_ADDR_NSSDC@"
-NSSDC_FQDN="@FQDN_NSSDC@"
-NSSDC_WEBPAGE="https://@FQDN_NSSDC@:8443/Login/Index"
+VM_NAME_DC="@VM_NAME_DC@"
+IP_ADDR_DC="@IP_ADDR_DC@"
+FQDN_DC="@FQDN_DC@"
+WEBPAGE_DC="https://@FQDN_DC@:8443/Login/Index"
 
 ###########################
 ###### Startup logic ######

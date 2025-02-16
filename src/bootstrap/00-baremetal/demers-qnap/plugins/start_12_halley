@@ -40,10 +40,10 @@ plugin_halley_start() {
     return 1
   fi
 
-  if ! xe_vm_start "${NAS_VM_NAME}"; then
+  if ! xe_vm_start "${VM_NAME_NAS}"; then
     logError "Failed to start VM"
     return 1
-  elif ! nu_wait_dns "${NAS_FQDN}" "" 300; then
+  elif ! nu_wait_dns "${FQDN_NAS}" "" 300; then
     logError "Failed to resolve Halley's FQDN"
     return 1
   elif ! nu_wait_web "${NAS_WEBPAGE}" 200 300; then
@@ -117,7 +117,7 @@ plug_nas_disks() {
   done
 
   # Attach only and all these drives from the SR to the VM
-  if ! xe_vm_attach_all_but_only_from_sr "${NAS_VM_NAME}" "${NAS_VM_SR}" "${vdi_list[@]}"; then
+  if ! xe_vm_attach_all_but_only_from_sr "${VM_NAME_NAS}" "${NAS_VM_SR}" "${vdi_list[@]}"; then
     logError "Failed to attach disks to VM"
     return 1
   fi
@@ -125,10 +125,10 @@ plug_nas_disks() {
   return 0
 }
 
-NAS_VM_NAME="@VM_NAME_NAS@"
+VM_NAME_NAS="@VM_NAME_NAS@"
 NAS_VM_SR="XCP_DRIVE_SR_NAME"
 NAS_DISK_CONFIG="nas.env"
-NAS_FQDN="@FQDN_NAS@"
+FQDN_NAS="@FQDN_NAS@"
 NAS_WEBPAGE="https://@FQDN_NAS@:443/ui"
 
 ###########################

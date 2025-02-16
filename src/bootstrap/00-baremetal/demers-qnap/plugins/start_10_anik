@@ -9,16 +9,16 @@ startup_main() {
     return 1
   fi
 
-  if ! xe_vm_start "${ANIK_VM_NAME}"; then
+  if ! xe_vm_start "${VM_NAME_ROUTER}"; then
     logError "Failed to start VM"
     return 1
-  elif ! nu_wait_ping "${ANIK_IP_ADDR}" 300; then
+  elif ! nu_wait_ping "${IP_ADDR_ROUTER}" 300; then
     logError "Failed to ping Anik"
     return 1
-  elif ! nu_wait_web "${ANIK_WEBPAGE}" 200 300; then
+  elif ! nu_wait_web "${WEBPAGE_ROUTER}" 200 300; then
     logError "Failed to reach Anik's webpage"
     return 1
-  elif ! nu_wait_dns "${ANIK_FQDN}" "" 300; then
+  elif ! nu_wait_dns "${FQDN_ROUTER}" "" 300; then
     logError "Failed to resolve Anik's FQDN"
     return 1
   else
@@ -58,10 +58,10 @@ startup_config() {
 }
 
 # Constants
-ANIK_VM_NAME="@VM_NAME_ANIK@"
-ANIK_IP_ADDR="@IP_ADDR_ANIK@"
-ANIK_FQDN="@FQDN_ANIK@"
-ANIK_WEBPAGE="https://@IP_ADDR_ANIK@:443"
+VM_NAME_ROUTER="@VM_NAME_ROUTER@"
+IP_ADDR_ROUTER="@IP_ADDR_ROUTER@"
+FQDN_ROUTER="@FQDN_ROUTER@"
+WEBPAGE_ROUTER="https://@IP_ADDR_ROUTER@:443"
 
 ###########################
 ###### Startup logic ######

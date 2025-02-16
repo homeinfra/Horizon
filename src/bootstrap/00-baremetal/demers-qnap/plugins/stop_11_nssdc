@@ -9,7 +9,7 @@ plugin_nssdc_stop() {
   if ! nssdc_config_load; then
     return 1
   fi
-  if ! xe_vm_shutdown "${DC_VM_NAME}" "force"; then
+  if ! xe_vm_shutdown "${VM_NAME_DC}" "force"; then
     logError "Failed to shutdown VM"
     return 1
   fi
@@ -32,7 +32,7 @@ nssdc_config_load() {
   fi
 }
 
-DC_VM_NAME="@VM_NAME_DC@"
+VM_NAME_DC="@VM_NAME_DC@"
 
 ###########################
 ###### Startup logic ######
