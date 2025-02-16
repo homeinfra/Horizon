@@ -1,9 +1,5 @@
 # Configuration
-.config/*
-!.config/default.env
-!.config/demers.env
-!.config/demers-qnap.env
-!.config/sonia.env
+.config/local.env
 
 # Build directory
 build/*

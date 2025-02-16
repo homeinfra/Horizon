@@ -79,8 +79,8 @@ kosmos_config() {
   fi
 }
 
-HTPC_VM_NAME="@VM_NAME_KOSMOS@"
-HTPC_FQDN="@FQDN_KOSMOS@"
+HTPC_VM_NAME="@HTPC_VM_NAME@"
+HTPC_FQDN="@HTPC_FQDN@"
 
 ###########################
 ###### Startup logic ######

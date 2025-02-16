@@ -32,7 +32,7 @@ losmos_config_load() {
   fi
 }
 
-HTPC_VM_NAME="@VM_NAME_HTPC@"
+HTPC_VM_NAME="@HTPC_VM_NAME@"
 
 ###########################
 ###### Startup logic ######

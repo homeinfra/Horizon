@@ -28,6 +28,9 @@ setup() {
   elif ! configure_htpc; then
     logError "Failed to configure HTPC"
     return 1
+  elif ! install_pugins; then
+    logError "Failed to install plugins"
+    return 1
   elif ! connect_qnap_to_sol; then
     logError "Failed to connect QNAP"
     return 1
@@ -113,8 +116,6 @@ configure_htpc() {
   elif ! xe_vm_start "${HTPC_VM_NAME}"; then
     logError "Failed to start ${HTPC_VM_NAME}"
     return 1
-  elif ! install_htpc_pugins; then
-    return 1
   else
     logInfo "HTPC Ready to install"
   fi
@@ -122,7 +123,7 @@ configure_htpc() {
   return 0
 }
 
-install_htpc_pugins() {
+install_pugins() {
   # Find plugin files
   local files=()
   local file
@@ -151,6 +152,7 @@ install_htpc_pugins() {
   # shellcheck disable=SC2066
   for plug_file in "${files[@]}"; do
     file_name=$(basename "${plug_file}")
+    logInfo "Installing plugin: ${file_name}"
     if ! tmp_file=$(mktemp); then
       logError "Failed to create temporary file"
       return 1
@@ -183,30 +185,30 @@ install_htpc_pugins() {
 }
 
 connect_qnap_to_sol() {
-  # Get demers identity
-  local demers_id
-  if ! ssh_identity_create demers_id "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" 22; then
+  # Need qnap config
+  if ! config_load "${SDQ_ROOT}/.config/demers-qnap.env"; then
+    return 1
+  fi
+
+  # Get qnap identity
+  local qnap_id
+  if ! ssh_identity_create qnap_id "${XEN_USER}" "${XEN_PWD}" "${XEN_MGT}" 22; then
     logError "Failed to create demers identity"
     return 1
   fi
 
-  # Need qnap config
-  if ! source "${SDQ_ROOT}/.config/demers-qnap.env"; then
-    logError "Failed to load QNAP configuration"
-    return 1
-  fi
-
-  local myres
-  ssh_identity_authorize "${demers_id}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" 22
-  myres=$?
-
   # Restore sol config
-  if ! source "${SDQ_ROOT}/.config/demers-sol.env"; then
+  if ! config_load "${SDQ_ROOT}/.config/demers-sol.env"; then
     logError "Failed to load demers-sol configuration"
     return 1
   fi
 
-  return "${myres}"
+  if ! ssh_identity_authorize "${qnap_id}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" 22; then
+    logError "Could not authorize QNAP on SOL"
+    return 1
+  fi
+
+  return 0
 }
 
 join_pool() {
@@ -218,7 +220,7 @@ sol_exec() {
   local __ssh_res=${1}
   shift
 
-  nu_ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" "22" "${@}"
+  ssh_exec "${__ssh_res}" "${XEN_USER}" "${XEN_PWD}" "${XEN_HOST}" "22" "${@}"
   return $?
 }
 
