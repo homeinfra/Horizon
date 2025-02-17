@@ -54,7 +54,7 @@ reponsibility to delete persistent data if desired and should not be automated.
 
 1. Deploy the entire infrastructure, including the Horizon cluster, starting
 from the Xen/XCP-ng XAPI API and moving up the stack.
-1. Maintain the entire Horizon cluster in a GitOps fashiopn.
+1. Maintain the entire Horizon cluster in a GitOps fashion.
 
 ### Non-goal
 
@@ -181,9 +181,7 @@ Alexis Bouvar's observations.
 
 ### Catch up to previous/existing work
 
-1. Create Kosmos VM
 1. Connect SOL and QNAP together in a pool
-1. Complete startup/shutdown logic with UPS
 
 ### Next steps
 
@@ -214,8 +212,8 @@ Alexis Bouvar's observations.
 1. Cleanup all instances of "# Variables loaded externally",
    to be replaced by checks for -z.
 1. Revisit all instances where we disable shellcheck warnings
-1. Enhance slf4.sh to support stack traces on logFatal
-1. Add a function to manually dump a stack trace in slf4.sh
+1. Enhance slf4.sh to support stack traces on logFatal. This could be an "-s"
+   option to the logger.
 1. Update GUARDS everywhere to print a warning and stack trace
 1. Can we have a reusable utility function for the GUARDS?
 1. Eliminate executables that are also used as library

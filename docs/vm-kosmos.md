@@ -11,7 +11,7 @@ VM running on demers-sol, used for the following purpose:
 This VM is not configured by a scipt. The following actions need to be performed
 once Windows is installed.
 
-The VM itself is created by running /src/bootstrap/01-vm/Kosmos/setup
+The VM itself is created by running /src/bootstrap/00-baremetal/demers-sol/setup
 
 1. Configure hostname to Kosmos
 1. Install Remote Mouse
@@ -30,4 +30,3 @@ The VM itself is created by running /src/bootstrap/01-vm/Kosmos/setup
 1. Connect bluetooth keyboard
 1. Test that IR remote works
 1. Make sure that Bluray drive shows up
-1.

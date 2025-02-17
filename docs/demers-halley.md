@@ -3,7 +3,7 @@
 ## Steps taken during installation
 
 - Chosen a password for user truenas_admin
-- Chosen a drive xdva (20 TiB)
+- Chosen a drive xdva (20 GiB)
 - Keep defaults for network (DHCP)
 
 ## Steps taken after installation
