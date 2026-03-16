@@ -8,6 +8,7 @@ FROM horizon-prod-base-image:latest
 ARG LOCAL_BINDIR="/usr/local"
 ARG BUTANE_URL="https://github.com/coreos/butane/releases/download/v0.23.0/butane-x86_64-unknown-linux-gnu"
 
+ARG IG_PORT
 ARG SYS_GROUP
 ARG SYS_USER
 ARG VER_VERSION

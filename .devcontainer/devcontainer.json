@@ -1,18 +1,15 @@
 {
   "name": "horizon-dev",
-  "initializeCommand": "${localWorkspaceFolder}/src/dev/prepare_dev",
+  "initializeCommand": "bash ${localWorkspaceFolder}/src/host/prepare_dev",
   "dockerComposeFile": [
     "${localWorkspaceFolder}/src/docker-compose.yml"
   ],
   "service": "dev",
-  "runArgs": [
-  "--env-file", "src/.env"
-  ],
   "workspaceFolder": "/home/dev/horizon",
   "mounts": [
     "source=${localWorkspaceFolder},target=/home/dev/horizon,type=bind,consistency=consistent",
     "source=${localEnv:HOME}/.ssh,target=/home/dev/.ssh,type=bind,consistency=cached",
-    "source=${localEnv:SOPS_AGE_KEY_FILE},target=/home/dev/.sops/age.txt,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.sops/homeinfra_demers.txt,target=/home/dev/.sops/age.txt,type=bind,consistency=cached"
   ],
   "customizations": {
     "vscode": {

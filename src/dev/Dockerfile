@@ -13,11 +13,10 @@ ARG DEV_GROUP
 ARG DEV_UID
 ARG DEV_GID
 ARG VER_VERSION
-ARG HOME_REL_AGE_KEY_FILE
 
 LABEL version=${VER_VERSION}
 
-SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
+SHELL ["/bin/ash", "-euo", "pipefail", "-c"]
 
 USER root
 
@@ -53,12 +52,15 @@ RUN apk add --no-cache \
   && apk cache clean --purge
 
 USER ${DEV_USER}
-ENV PATH=/home/${DEV_USER}/.local/bin:${PATH}
+ENV PATH=/home/${DEV_USER}/.local/bin:${PATH} \
+    SOPS_AGE_KEY_FILE=/home/${DEV_USER}/.sops/age.txt
 WORKDIR /home/${DEV_USER}/horizon
 
 # Install script dependencies
 RUN curl -sLo- https://get.bpkg.sh | bash \
   && bpkg install -g jeremfg/slf4.sh \
   && bpkg install -g jeremfg/config.sh
+
+VOLUME [ "/home/dev/horizon", "/home/dev/.ssh", "/home/dev/.sops/age.txt" ]
 
 ENTRYPOINT ["src/dev/dev_entry"]
