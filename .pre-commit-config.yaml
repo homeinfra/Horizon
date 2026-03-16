@@ -91,7 +91,7 @@ repos:
   - repo: local
     hooks:
       - id: my-dotenv-linter  # dotenv
-        args: [--skip, LowercaseKey]
+        args: [check, --ignore-checks, LowercaseKey]
         name: dotenv-linter
         pass_filenames: true
         language: system
