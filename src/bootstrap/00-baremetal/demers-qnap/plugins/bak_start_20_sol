@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Script executed on startup to configure the system on bootup
+# Script executed on startup to configure the system on boot-up
 
 startup_main() {
   if ! startup_config; then

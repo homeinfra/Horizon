@@ -7,3 +7,4 @@ build/*
 # Log files
 .log/
 src/.env
+**/.decrypted~*
