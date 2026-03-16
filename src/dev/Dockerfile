@@ -52,16 +52,13 @@ RUN apk add --no-cache \
   cargo \
   && apk cache clean --purge
 
-# # Copy the entrypoint script into the container
-COPY dev_entry ${LOCAL_BINDIR}/bin/dev_entry
-RUN chmod +x ${LOCAL_BINDIR}/bin/dev_entry
-
 USER ${DEV_USER}
 ENV PATH=/home/${DEV_USER}/.local/bin:${PATH}
+WORKDIR /home/${DEV_USER}/horizon
 
 # Install script dependencies
 RUN curl -sLo- https://get.bpkg.sh | bash \
   && bpkg install -g jeremfg/slf4.sh \
   && bpkg install -g jeremfg/config.sh
 
-ENTRYPOINT ["/usr/local/bin/dev_entry"]
+ENTRYPOINT ["src/dev/dev_entry"]

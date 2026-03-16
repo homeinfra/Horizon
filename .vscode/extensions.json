@@ -1,9 +1,14 @@
 {
   "recommendations": [
+    "editorconfig.editorconfig",
     "timonwong.shellcheck",
     "mhutchie.git-graph",
     "signageos.signageos-vscode-sops",
-    "ms-azuretools.vscode-docker",
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-preview-github-styles",
+    "ms-vscode-remote.vscode-remote-extensionpack",
+    "ms-azuretools.vscode-containers",
     "ms-python.python",
+    "mhutchie.git-graph",
   ]
 }

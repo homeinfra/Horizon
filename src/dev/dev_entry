@@ -8,5 +8,9 @@ if [ "$#" -gt 0 ]; then
   exit $?
 else
   echo "Welcome to Horizon's development container!"
-  /bin/sh -i
+  if [ -t 1 ]; then
+    exec /bin/sh -i
+  else
+    sleep infinity
+  fi
 fi
