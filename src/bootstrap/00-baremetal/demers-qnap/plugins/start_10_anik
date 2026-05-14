@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 #
-# Script executed on startup to configure the system on bootup
+# Script executed on startup to configure the system on boot-up
 
 startup_main() {
   if ! startup_config; then
@@ -18,7 +18,7 @@ startup_main() {
   elif ! nu_wait_web "${WEBPAGE_ROUTER}" 200 300; then
     logError "Failed to reach Anik's webpage"
     return 1
-  elif ! nu_wait_dns "${FQDN_ROUTER}" "" 300; then
+  elif ! nu_wait_dns dummy "${FQDN_ROUTER}" "" 300; then
     logError "Failed to resolve Anik's FQDN"
     return 1
   else

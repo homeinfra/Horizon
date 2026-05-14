@@ -63,7 +63,7 @@ configure_network() {
   fi
 
   # Wait for the device to appear on the network
-  if ! nu_wait_dns "${XEN_HOST}" "${XEN_GW}" "30"; then
+  if ! nu_wait_dns dummy "${XEN_HOST}" "${XEN_GW}" "30"; then
     return 1
   fi
   if ! nu_wait_ping "${XEN_HOST}" "30"; then

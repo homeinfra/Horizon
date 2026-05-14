@@ -49,7 +49,7 @@ plugin_halley_start() {
   if ! xe_vm_start "${VM_NAME_NAS}"; then
     logError "Failed to start VM"
     return 1
-  elif ! nu_wait_dns "${FQDN_NAS}" "" 300; then
+  elif ! nu_wait_dns dummy "${FQDN_NAS}" "" 300; then
     logError "Failed to resolve Halley's FQDN"
     return 1
   elif ! nu_wait_web "${NAS_WEBPAGE}" 200 300; then

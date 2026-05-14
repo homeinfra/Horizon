@@ -13,7 +13,7 @@ startup_main() {
   if ! nu_wait_ping "${SOL_IPMI_IP}" 300; then
     logError "Failed to ping IPMI"
     return 1
-  elif ! nu_wait_dns "${SOL_IPMI_FQDN}" "" 300; then
+  elif ! nu_wait_dns dummy "${SOL_IPMI_FQDN}" "" 300; then
     logError "Failed to resolve IPMI's FQDN"
     return 1
   elif ! nu_wait_web "${SOL_IPMI_WEBPAGE}" 200 300; then
@@ -55,7 +55,7 @@ startup_main() {
   if ! nu_wait_ping "${SOL_SSH_IP}" 300; then
     logError "Failed to ping SSH"
     return 1
-  elif ! nu_wait_dns "${SOL_SSH_FQDN}" "" 300; then
+  elif ! nu_wait_dns dummy "${SOL_SSH_FQDN}" "" 300; then
     logError "Failed to resolve SSH's FQDN"
     return 1
   elif ! nu_wait_web "${SOL_SSH_WEBPAGE}" 200 300; then

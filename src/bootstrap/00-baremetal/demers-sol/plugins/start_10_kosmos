@@ -12,7 +12,7 @@ kosmos_startup() {
     return 1
   elif ! xe_vm_start "${HTPC_VM_NAME}"; then
     return 1
-  elif ! nu_wait_dns "${HTPC_FQDN}" "" 300; then
+  elif ! nu_wait_dns dummy "${HTPC_FQDN}" "" 300; then
     return 1
   elif ! nu_wait_ping "${HTPC_FQDN}" 300; then
     return 1
