@@ -29,10 +29,10 @@ cloned, and the entrypoint within called.
 ### Linux Ubuntu
 
 [Download and execute this script](src/client/setup-linux). This script is
-designed to run on a fresh vanilla installation of Linux Unbuntu, but might
+designed to run on a fresh vanilla installation of Linux Ubuntu, but might
 work on any unbuntu-based distribution that supports apt-get. At the end of
 it's execution, it will have setup an environment where docker is supported
-and this respository was cloned.
+and this repository was cloned.
 
 You are now fully setup. Everything will run using bash and docker. Keep on
 reading to figure out what to execute.
@@ -48,7 +48,7 @@ Great care was taken in making sure this script will only perform edits to the
 environmnent, reaching the described and desired outcome like you would expect
 in a declarative philosophy. When it comes to persistent data, a retain policy
 is used to make sure no data is ever lost. It is deemed a manual task and human
-reponsibility to delete persistent data if desired and should not be automated.
+responsibility to delete persistent data if desired and should not be automated.
 
 ### Goal
 
@@ -114,7 +114,7 @@ Switches:
 
 - Unidentified: Unmanaged, 1 GbE
 
-Acces Points:
+Access Points:
 
 - Ubiquitu UniFi U6-Lite
 
@@ -124,7 +124,7 @@ Cable Modem:
 
 ## Virtual Nodes
 
-### Anik (demers)
+### Router-main (demers)
 
 VM running on pool demers, running OPNSense, acting as primary router for demers
 
@@ -217,5 +217,5 @@ Alexis Bouvar's observations.
 1. Update GUARDS everywhere to print a warning and stack trace
 1. Can we have a reusable utility function for the GUARDS?
 1. Eliminate executables that are also used as library
-1. Do the Unbuntu deployment script
+1. Do the Ubuntu deployment script
 1. Replace Halley configuration from manual GUI to Automated json
